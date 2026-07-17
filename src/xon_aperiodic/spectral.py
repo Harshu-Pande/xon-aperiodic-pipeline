@@ -176,67 +176,68 @@ def fit_segment(epochs: mne.Epochs, subject_id: str, segment_label: str, start_m
     return rows, peak_df, freqs, psd_2d, fm_by_channel, ch_names
 
 
-def compute_convergence(epochs: mne.Epochs, epoch_length_sec: float, fooof_freq_range: Sequence[float],
-                        fooof_settings: Dict[str, Any], full_exponent: Optional[float],
-                        tolerance: float = 0.1, step_sec: float = 15.0,
-                        interpolated_channels: Sequence[str] = ()) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """Running across-channel AVERAGE exponent using the first k clean epochs, for
-    increasing k. Returns (trajectory dataframe, summary dict with minutes-to-stability).
+def _avg_psd_exponent(epochs_subset: mne.Epochs, epoch_length_sec: float,
+                      fooof_freq_range: Sequence[float], fooof_settings: Dict[str, Any],
+                      keep_idx: Sequence[int]) -> Tuple[float, float]:
+    """Fit the exponent on the channel-averaged PSD of an epoch subset. Returns
+    (exponent, r_squared) or (nan, nan). Averaging the PSD across channels first is a
+    standard, fast estimator and keeps the reliability analysis internally consistent."""
+    if len(epochs_subset) < 3:
+        return float("nan"), float("nan")
+    try:
+        freqs, psd_2d, _ = compute_psd(epochs_subset, epoch_length_sec, verbose=False)
+    except Exception:
+        return float("nan"), float("nan")
+    idx = [i for i in keep_idx if i < psd_2d.shape[0]] or list(range(psd_2d.shape[0]))
+    psd = np.nanmean(psd_2d[idx, :], axis=0)
+    mask = np.isfinite(psd) & (psd > 0)
+    if mask.sum() < 5:
+        return float("nan"), float("nan")
+    try:
+        _, metrics = fit_fooof(freqs[mask], psd[mask], fooof_freq_range, fooof_settings, verbose=False)
+        return float(metrics["aperiodic_exponent"]), float(metrics["r_squared"])
+    except Exception:
+        return float("nan"), float("nan")
 
-    'Stable' = the running estimate stays within +/- tolerance of the full-recording
-    value from that point to the end. This gives an evidence-based answer to how many
-    clean minutes a recording needs.
+
+def compute_duration_curve(epochs: mne.Epochs, epoch_length_sec: float,
+                           fooof_freq_range: Sequence[float], fooof_settings: Dict[str, Any],
+                           step_sec: float = 30.0, interpolated_channels: Sequence[str] = ()
+                           ) -> pd.DataFrame:
+    """How the exponent estimate behaves as clean data accumulates - the raw material
+    for the reliability-vs-duration analysis.
+
+    For each cumulative duration (first k clean epochs, stepping by ``step_sec``) we fit
+    the channel-averaged exponent three ways:
+      * ``exponent_all``  - all first-k epochs (the estimate you'd report at that length)
+      * ``exponent_odd``  - the odd-indexed epochs within the first k
+      * ``exponent_even`` - the even-indexed epochs within the first k
+    The odd/even split lets the cohort layer compute split-half (internal-consistency)
+    reliability at each duration; ``exponent_all`` across sessions gives test-retest
+    reliability at each duration. Returns one row per duration.
     """
     interp_set = {str(c).upper() for c in interpolated_channels}
     n_total = len(epochs)
-    if n_total < 3:
-        return pd.DataFrame(), dict(minutes_to_stability="", converged=False)
-
-    step_epochs = max(1, int(round(step_sec / epoch_length_sec)))
-    ks = list(range(step_epochs, n_total + 1, step_epochs))
-    if ks[-1] != n_total:
-        ks.append(n_total)
+    if n_total < 6:
+        return pd.DataFrame()
 
     ch_names = list(epochs.ch_names)
-    keep_idx = [i for i, c in enumerate(ch_names) if c.upper() not in interp_set]
-    if not keep_idx:
-        keep_idx = list(range(len(ch_names)))
+    keep_idx = [i for i, c in enumerate(ch_names) if c.upper() not in interp_set] or list(range(len(ch_names)))
 
-    traj = []
+    step_epochs = max(1, int(round(step_sec / epoch_length_sec)))
+    ks = list(range(2 * step_epochs, n_total + 1, step_epochs))  # start a little in so odd/even are stable
+    if not ks or ks[-1] != n_total:
+        ks.append(n_total)
+
+    rows = []
     for k in ks:
-        try:
-            freqs, psd_2d, _ = compute_psd(epochs[:k], epoch_length_sec, verbose=False)
-            chan_exps = []
-            for ci in keep_idx:
-                psd = psd_2d[ci]
-                mask = np.isfinite(psd) & (psd > 0)
-                if mask.sum() < 5:
-                    continue
-                _, metrics = fit_fooof(freqs[mask], psd[mask], fooof_freq_range,
-                                       fooof_settings, verbose=False)
-                chan_exps.append(metrics["aperiodic_exponent"])
-            if not chan_exps:
-                continue
-            traj.append(dict(clean_minutes=round(k * epoch_length_sec / 60.0, 4),
-                             clean_epochs=k, aperiodic_exponent=round(float(np.mean(chan_exps)), 6),
-                             n_channels=len(chan_exps)))
-        except Exception:
-            continue
-
-    traj_df = pd.DataFrame(traj)
-    summary: Dict[str, Any] = dict(minutes_to_stability="", converged=False,
-                                   convergence_tolerance=tolerance)
-    if traj_df.empty:
-        return traj_df, summary
-
-    target = full_exponent if full_exponent is not None else float(traj_df["aperiodic_exponent"].iloc[-1])
-    summary["full_exponent"] = round(float(target), 6)
-    within = np.abs(traj_df["aperiodic_exponent"].values - target) <= tolerance
-    minutes_to_stability = ""
-    for i in range(len(within)):
-        if within[i:].all():                 # stays within tolerance from here to the end
-            minutes_to_stability = float(traj_df["clean_minutes"].iloc[i])
-            break
-    summary["minutes_to_stability"] = minutes_to_stability
-    summary["converged"] = minutes_to_stability != ""
-    return traj_df, summary
+        sub = epochs[:k]
+        odd = sub[list(range(0, k, 2))]
+        even = sub[list(range(1, k, 2))]
+        exp_all, r2_all = _avg_psd_exponent(sub, epoch_length_sec, fooof_freq_range, fooof_settings, keep_idx)
+        exp_odd, _ = _avg_psd_exponent(odd, epoch_length_sec, fooof_freq_range, fooof_settings, keep_idx)
+        exp_even, _ = _avg_psd_exponent(even, epoch_length_sec, fooof_freq_range, fooof_settings, keep_idx)
+        rows.append(dict(clean_minutes=round(k * epoch_length_sec / 60.0, 4), clean_epochs=k,
+                         exponent_all=round(exp_all, 6), exponent_odd=round(exp_odd, 6),
+                         exponent_even=round(exp_even, 6), r2_all=round(r2_all, 6)))
+    return pd.DataFrame(rows)

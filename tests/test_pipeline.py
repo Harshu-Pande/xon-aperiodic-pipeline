@@ -97,8 +97,9 @@ def test_single_file_outputs(base_cfg, clean_xdf):
     m = result.master_record
     assert m["status"] == "ok"
     assert m["participant"] == "P001" and m["condition"] == "rest"
-    # convergence should have produced a minutes-to-stability value
-    assert m.get("minutes_to_stability", "") != ""
+    # the duration curve (raw material for reliability-vs-length) should exist
+    assert not result.duration_df.empty
+    assert {"exponent_all", "exponent_odd", "exponent_even"}.issubset(result.duration_df.columns)
 
 
 # --------------------------------------------------------------------------
@@ -108,13 +109,17 @@ def test_batch_and_stats(base_cfg, cohort_dir):
     base_cfg.data["io"]["input_dir"] = str(cohort_dir)
     base_cfg.data["analysis"]["block_analysis"] = False
     outputs = run_batch(cfg=base_cfg)
-    assert "master_csv" in outputs and "cohort_report" in outputs
+    assert "master_csv" in outputs and "cohort_report" in outputs and "gallery" in outputs
     master = outputs["master_df"]
     assert (master["status"] == "ok").all()
     assert set(master["participant"]) == {"P001", "P002"}
-    # reliability CSV should exist with an ICC column
+    # full-length test-retest reliability CSV should exist with an ICC column
     rel = pd.read_csv(outputs["stats_reliability"])
     assert "ICC(2,1)" in rel.columns
+    # reliability-vs-duration curve should have been produced
+    assert "stats_reliability_by_duration" in outputs
+    curve = pd.read_csv(outputs["stats_reliability_by_duration"])
+    assert {"minutes", "split_half_reliability", "test_retest_icc"}.issubset(curve.columns)
 
 
 # --------------------------------------------------------------------------

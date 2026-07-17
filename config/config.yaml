@@ -180,11 +180,11 @@ analysis:
   # Split the recording into blocks and fit each (shows drift over time).
   block_analysis: true
   block_length_min: 5.0
-  # Convergence analysis: how the exponent stabilises as clean minutes accumulate.
-  # This answers the study's core question - "how few minutes are enough?"
-  convergence_analysis: true
-  convergence_tolerance: 0.1   # exponent considered "stable" within +/- this of the full-recording value
-  convergence_step_sec: 15.0   # evaluate the running estimate every this many seconds of clean data
+  # Reliability-vs-duration: fit the exponent on increasing amounts of clean data
+  # (all/odd/even epochs) so the cohort layer can measure how reliability improves with
+  # recording length - the rigorous version of "how few minutes are enough?"
+  reliability_analysis: true
+  reliability_step_sec: 30.0   # evaluate the estimate every this many seconds of clean data
 
 # -----------------------------------------------------------------------------
 # COHORT STATISTICS  (run across all files after the batch, for publication)
@@ -199,3 +199,7 @@ stats:
   # Which condition is the "quiet" vs "noisy" contrast (rest vs movie robustness).
   quiet_condition: "rest"
   noisy_condition: "movie"
+  # Reliability targets for the "how few minutes are enough" analysis:
+  #   split_half >= 0.90 (internal consistency), test-retest ICC >= 0.75 (good).
+  reliability_split_half_target: 0.90
+  reliability_icc_target: 0.75

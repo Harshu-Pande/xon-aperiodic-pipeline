@@ -14,6 +14,7 @@ from ..config import Config
 from ..logging_utils import banner, info
 from . import stats as S
 from . import figures as F
+from . import gallery as G
 
 
 def _df_to_html(df: pd.DataFrame) -> str:
@@ -54,12 +55,19 @@ def _interpretation(results_stats: Dict[str, Any]) -> str:
         bullets.append(f"{con['noisy']} vs {con['quiet']}: exponent differs by "
                        f"{con['mean_diff_noisy_minus_quiet']} on average "
                        f"(n={con['n_pairs']} pairs, p={p}).")
-    conv = results_stats.get("convergence", {})
-    if conv.get("n_converged"):
-        med = conv.get("minutes_to_stability_median", "")
-        bullets.append(f"{conv.get('pct_converged')}% of recordings reached a stable exponent; "
-                       f"median time to stability was {med} minutes of clean data - central to the "
-                       "'a few minutes instead of 8 hours' goal.")
+    rel = results_stats.get("duration_reliability", {}) or {}
+    m_icc, m_sh = rel.get("minutes_for_good_icc", ""), rel.get("minutes_for_split_half", "")
+    if m_sh not in ("", None) or m_icc not in ("", None):
+        parts = []
+        if m_sh not in ("", None):
+            parts.append(f"internal-consistency (split-half) reliability reached "
+                         f"{rel.get('split_half_target')} by <b>{m_sh} min</b>")
+        if m_icc not in ("", None):
+            parts.append(f"between-session reliability reached 'good' (ICC "
+                         f"{rel.get('icc_target')}) by <b>{m_icc} min</b>")
+        bullets.append("How few minutes are enough: " + "; ".join(parts) +
+                       " of clean data — direct evidence for the 'a few minutes instead of "
+                       "8 hours' premise.")
     q = results_stats.get("quality")
     if isinstance(q, pd.DataFrame) and not q.empty:
         r2 = q[(q["group"] == "all") & (q["metric"] == "fit r^2")]
@@ -78,8 +86,10 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
     regions = cfg.section("stats").get("regions", {})
     quiet = cfg.get("stats", "quiet_condition", "rest")
     noisy = cfg.get("stats", "noisy_condition", "movie")
+    sh_target = float(cfg.get("stats", "reliability_split_half_target", 0.90))
+    icc_target = float(cfg.get("stats", "reliability_icc_target", 0.75))
 
-    st = S.compute_all(master_df, regions, quiet, noisy)
+    st = S.compute_all(master_df, results, regions, quiet, noisy, sh_target, icc_target)
 
     # write stat tables
     paths: Dict[str, str] = {}
@@ -89,18 +99,33 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
             p = out_dir / f"stats_{name}.csv"
             df.to_csv(p, index=False)
             paths[f"stats_{name}"] = str(p)
+    # reliability-vs-duration curve CSV
+    rel = st.get("duration_reliability", {}) or {}
+    rel_curve = rel.get("curve")
+    if isinstance(rel_curve, pd.DataFrame) and not rel_curve.empty:
+        p = out_dir / "stats_reliability_by_duration.csv"
+        rel_curve.to_csv(p, index=False)
+        paths["stats_reliability_by_duration"] = str(p)
+
     # scalar summaries as a combined csv
     scalar = {}
     scalar.update({f"contrast.{k}": v for k, v in (st["contrast"] or {}).items()})
     scalar.update({f"regional_test.{k}": v for k, v in (st["regional_test"] or {}).items()})
-    scalar.update({f"convergence.{k}": v for k, v in (st["convergence"] or {}).items()})
+    scalar.update({f"duration_reliability.{k}": v for k, v in rel.items() if k != "curve"})
     if scalar:
         p = out_dir / "stats_summary.csv"
         pd.DataFrame([scalar]).to_csv(p, index=False)
         paths["stats_summary"] = str(p)
 
-    figs = F.build_all(master_df, results, st["regional"], str(out_dir), quiet, noisy)
+    figs = F.build_all(master_df, results, st["regional"], str(out_dir), quiet, noisy, reliab=rel)
     paths.update({f"fig_{k}": v for k, v in figs.items()})
+
+    # one-page gallery of every recording's diagnostic figure
+    try:
+        paths["gallery"] = G.build_gallery(out_dir, master_df)
+        info(f"Diagnostics gallery: {paths['gallery']}")
+    except Exception as exc:
+        info(f"Gallery skipped ({exc}).")
 
     # cohort HTML report
     n_ok = int((master_df.get("status", pd.Series(dtype=str)).astype(str) != "error").sum()) if not master_df.empty else 0
@@ -145,13 +170,21 @@ versus resting? A paired contrast within each participant-session.</p>
 {_dict_to_html(st['regional_test'])}
 {_img(figs.get('regional',''), out_dir)}
 
-<h2>5. How few minutes are enough? (convergence)</h2>
-<p>For each recording we track the running exponent as clean data accumulates and record
-when it settles within tolerance of the full-recording value.</p>
-{_dict_to_html(st['convergence'])}
-{_img(figs.get('convergence_overlay',''), out_dir)}
+<h2>5. How few minutes are enough? (reliability vs recording length)</h2>
+<p>We estimate the exponent using increasing amounts of clean data and ask how reliable it
+becomes. Two standard measures: <b>split-half internal consistency</b> (odd vs even epochs,
+Spearman-Brown corrected; target &ge; {sh_target}) and <b>between-session test-retest ICC</b>
+(session&nbsp;1 vs session&nbsp;2; target &ge; {icc_target} = "good"). The shortest recording
+length that reaches each target is the evidence-based answer to how few minutes are needed.</p>
+{_dict_to_html({k: v for k, v in (st['duration_reliability'] or {}).items() if k != 'curve'})}
+{_img(figs.get('reliability_by_duration',''), out_dir)}
+{_img(figs.get('duration_overlay',''), out_dir)}
+<p class='muted'>Method grounded in the aperiodic-reliability literature (McKeown et al. 2024,
+Cerebral Cortex; epoch-increment split-half reliability as in EEG power-spectrum reliability
+work). The full curve is in stats_reliability_by_duration.csv.</p>
 
-<p class='muted'>Per-recording QC reports (qc_report_&lt;id&gt;.html) and the wide
+<p class='muted'>See <b>gallery.html</b> for a one-page contact sheet of every recording's
+diagnostic figure. Per-recording QC reports (qc_report_&lt;id&gt;.html) and the wide
 master_everything.csv sit alongside this file for drill-down.</p>
 </body></html>"""
     report_path = out_dir / "cohort_report.html"

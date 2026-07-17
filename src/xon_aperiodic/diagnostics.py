@@ -125,28 +125,29 @@ def save_block_plot(results_df: pd.DataFrame, output_dir: str, subject_id: str) 
     return out_path
 
 
-def save_convergence_plot(conv_df: pd.DataFrame, summary: Dict[str, Any], subject_id: str,
-                          output_dir: str) -> Optional[str]:
-    if conv_df.empty:
+def save_duration_plot(dur_df: pd.DataFrame, subject_id: str, output_dir: str) -> Optional[str]:
+    """Per-recording: exponent estimate as clean data accumulates, with the odd/even
+    split that the cohort reliability analysis is built on."""
+    if dur_df is None or dur_df.empty:
         return None
     fig, ax = plt.subplots(figsize=(9, 5))
-    ax.plot(conv_df["clean_minutes"], conv_df["aperiodic_exponent"], marker="o", color="#264653")
-    target = summary.get("full_exponent")
-    tol = summary.get("convergence_tolerance", 0.1)
-    if target is not None:
-        ax.axhline(target, linestyle="--", color="red", label=f"full-recording = {target:.3f}")
-        ax.axhspan(target - tol, target + tol, color="red", alpha=0.1, label=f"+/-{tol} band")
-    mts = summary.get("minutes_to_stability", "")
-    if mts not in ("", None):
-        ax.axvline(float(mts), linestyle=":", color="green", linewidth=2,
-                   label=f"stable by {float(mts):.2f} min")
+    ax.plot(dur_df["clean_minutes"], dur_df["exponent_all"], marker="o", color="#264653",
+            label="all epochs")
+    if "exponent_odd" in dur_df and dur_df["exponent_odd"].notna().any():
+        ax.plot(dur_df["clean_minutes"], dur_df["exponent_odd"], linestyle="--", alpha=0.6,
+                color="#2a9d8f", label="odd epochs")
+        ax.plot(dur_df["clean_minutes"], dur_df["exponent_even"], linestyle="--", alpha=0.6,
+                color="#e76f51", label="even epochs")
+    full = float(dur_df["exponent_all"].dropna().iloc[-1]) if dur_df["exponent_all"].notna().any() else None
+    if full is not None:
+        ax.axhline(full, linestyle=":", color="gray", label=f"full-length = {full:.3f}")
     ax.set_xlabel("Clean data used (minutes)")
-    ax.set_ylabel("Running aperiodic exponent (channel average)")
-    ax.set_title(f"How few minutes are enough? | {subject_id}")
+    ax.set_ylabel("Aperiodic exponent")
+    ax.set_title(f"Exponent vs recording length | {subject_id}")
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=8)
     fig.tight_layout()
-    out_path = os.path.join(output_dir, f"convergence_{subject_id}.png")
+    out_path = os.path.join(output_dir, f"durationcurve_{subject_id}.png")
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return out_path
@@ -165,7 +166,7 @@ def write_qc_report(subject_id: str, meta, master_record: Dict[str, Any], res: D
     """One self-contained HTML page summarising this recording's run and quality."""
     m = master_record
     qc_stats = res.get("qc_stats", {}) or {}
-    conv_img = os.path.join(output_dir, f"convergence_{subject_id}.png")
+    dur_img = os.path.join(output_dir, f"durationcurve_{subject_id}.png")
 
     def img_tag(path: Optional[str]) -> str:
         if path and os.path.exists(path):
@@ -201,7 +202,6 @@ def write_qc_report(subject_id: str, meta, master_record: Dict[str, Any], res: D
         ("Exponent SD across channels", m.get("AVERAGE_exponent_sd", "")),
         ("Average fit r^2", m.get("AVERAGE_r_squared", "")),
         ("Channels averaged", m.get("AVERAGE_n_channels_averaged", "")),
-        ("Minutes to stability", m.get("minutes_to_stability", "")),
     ])
     qc_tbl = "".join(_row(k, qc_stats.get(k, "")) for k in [
         "epochs_before_qc", "epochs_dropped_amp_flat", "epochs_dropped_gradient",
@@ -256,7 +256,7 @@ th{{background:#f0f4f8;border:1px solid #e6e6e6;padding:5px 8px;text-align:left;
 <h2>Identity</h2><table>{ident}</table>
 <h2>Headline result</h2><table>{headline}</table>
 <h2>Diagnostic figure</h2>{img_tag(diagnostic_path)}
-<h2>How few minutes are enough?</h2>{img_tag(conv_img)}
+<h2>Exponent vs recording length</h2>{img_tag(dur_img)}
 <h2>Exponent over time (blocks)</h2>{img_tag(block_plot_path)}
 <h2>Epoch quality control</h2><table>{qc_tbl}</table>
 <h2>Preprocessing decisions</h2><table>{steps}</table>

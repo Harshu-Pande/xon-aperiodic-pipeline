@@ -68,7 +68,8 @@ manifest overrides filename parsing.
     implausibly flat (<0.5), re-fit so reject-value = report-value.
 13. **High-offender rejection** (optional) — drop a channel causing >50% of a session's
     rejected epochs, gated to only fire when overall rejection ≥15%.
-14. **Block** + **convergence** analyses within the recording.
+14. **Block** analysis + a **duration curve** (exponent on all/odd/even epochs at
+    increasing lengths) that feeds the cohort reliability-vs-length analysis.
 15. **Cohort** statistics + figures + report across all files.
 
 ## 5. Outputs (in the output folder)
@@ -80,7 +81,7 @@ Per recording (`<id>` = e.g. `P004_S2_rest`):
 | `aperiodic_results_<id>.csv` | per-channel + AVERAGE exponent, full recording + blocks |
 | `peak_table_<id>.csv` | oscillatory peaks found by FOOOF |
 | `epoch_qc_<id>.csv` | every epoch: kept/rejected and why |
-| `convergence_<id>.csv` / `.png` | running exponent vs clean minutes |
+| `durationcurve_<id>.csv` / `.png` | exponent (all/odd/even) at increasing clean minutes |
 | `diagnostic_<id>.png` | PSD + per-channel exponents + epoch QC |
 | `block_exponents_<id>.png` | exponent over time |
 | `qc_report_<id>.html` | **human-readable per-recording report** |
@@ -92,7 +93,9 @@ Cohort-level:
 | `master_everything.csv` | one wide row per recording — settings, rejection counts, per-channel detail |
 | `combined_aperiodic_results.csv` | all per-channel rows, long format |
 | `stats_quality.csv`, `stats_reliability.csv`, `stats_regional.csv`, `stats_summary.csv` | statistics tables |
-| `fig_*.png` | publication figures (condition, test-retest, regional, convergence, quality) |
+| `fig_*.png` | publication figures (condition, test-retest, regional, reliability-vs-duration, quality) |
+| `gallery.html` | one-page contact sheet of every recording's diagnostic figure |
+| `stats_reliability_by_duration.csv` | split-half + test-retest ICC at each recording length |
 | `cohort_report.html` | **the report to read / hand to a mentor** |
 | `pipeline_run.log` | full run log |
 

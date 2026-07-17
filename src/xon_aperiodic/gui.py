@@ -149,7 +149,7 @@ def main() -> None:
             st.subheader("Master results (one row per recording)")
             lead = [c for c in ["subject_id", "participant", "session", "condition",
                                 "AVERAGE_exponent", "AVERAGE_r_squared", "pct_epochs_rejected",
-                                "minutes_to_stability", "high_offender_flagged_channels", "status"]
+                                "high_offender_flagged_channels", "status"]
                     if c in df.columns]
             st.dataframe(df[lead] if lead else df, use_container_width=True)
             st.download_button("Download master_everything.csv", df.to_csv(index=False),

@@ -152,35 +152,69 @@ def regional_bar(regional_df: pd.DataFrame, out_dir: str) -> Optional[str]:
     return p
 
 
-def convergence_overlay(results: List[Any], out_dir: str) -> Optional[str]:
-    """Overlay every recording's exponent-vs-minutes trajectory + the cohort median."""
-    trajs = [(r.subject_id, r.convergence_df, getattr(r.metadata, "condition", "unknown"))
-             for r in results if getattr(r, "convergence_df", None) is not None
-             and not r.convergence_df.empty]
+def duration_overlay(results: List[Any], out_dir: str) -> Optional[str]:
+    """Overlay every recording's exponent-vs-minutes curve + the cohort median."""
+    trajs = [(r.subject_id, r.duration_df, getattr(r.metadata, "condition", "unknown"))
+             for r in results if getattr(r, "duration_df", None) is not None
+             and not r.duration_df.empty]
     if len(trajs) < 1:
         return None
     fig, ax = plt.subplots(figsize=(8, 5))
     all_curves = []
     for sid, df, cond in trajs:
         df = df.sort_values("clean_minutes")
-        ax.plot(df["clean_minutes"], df["aperiodic_exponent"], color=_color(cond),
+        ax.plot(df["clean_minutes"], _num(df["exponent_all"]), color=_color(cond),
                 alpha=0.35, linewidth=1.0)
-        all_curves.append(df.set_index("clean_minutes")["aperiodic_exponent"])
-    # cohort median on a common grid
+        all_curves.append(df.set_index("clean_minutes")["exponent_all"])
     if len(all_curves) >= 2:
         grid = np.linspace(min(c.index.min() for c in all_curves),
                            min(c.index.max() for c in all_curves), 40)
-        stacked = []
-        for c in all_curves:
-            stacked.append(np.interp(grid, c.index.values, c.values))
+        stacked = [np.interp(grid, c.index.values, pd.to_numeric(c.values, errors="coerce"))
+                   for c in all_curves]
         med = np.median(np.array(stacked), axis=0)
         ax.plot(grid, med, color="black", linewidth=2.5, label="cohort median")
         ax.legend()
     ax.set_xlabel("Clean data used (minutes)")
-    ax.set_ylabel("Running aperiodic exponent")
-    ax.set_title("Exponent stabilises with more clean data (all recordings)")
+    ax.set_ylabel("Aperiodic exponent")
+    ax.set_title("Exponent estimate vs recording length (all recordings)")
     fig.tight_layout()
-    p = os.path.join(out_dir, "fig_convergence_overlay.png")
+    p = os.path.join(out_dir, "fig_duration_overlay.png")
+    fig.savefig(p, bbox_inches="tight"); plt.close(fig)
+    return p
+
+
+def reliability_curve(reliab: dict, out_dir: str) -> Optional[str]:
+    """The headline: split-half internal consistency and between-session ICC as a
+    function of recording length, with the target lines and the minutes each is met."""
+    curve = reliab.get("curve")
+    if curve is None or len(curve) == 0:
+        return None
+    m = pd.to_numeric(curve["minutes"], errors="coerce")
+    sh = pd.to_numeric(curve["split_half_reliability"], errors="coerce")
+    icc = pd.to_numeric(curve["test_retest_icc"], errors="coerce")
+    if not (sh.notna().any() or icc.notna().any()):
+        return None
+    sh_t = reliab.get("split_half_target", 0.90)
+    icc_t = reliab.get("icc_target", 0.75)
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    if sh.notna().any():
+        ax.plot(m, sh, marker="o", color="#2a6f97", label="split-half (odd vs even)")
+        ax.axhline(sh_t, color="#2a6f97", linestyle=":", alpha=0.7)
+    if icc.notna().any():
+        ax.plot(m, icc, marker="s", color="#e07a5f", label="test-retest ICC (session 1 vs 2)")
+        ax.axhline(icc_t, color="#e07a5f", linestyle=":", alpha=0.7)
+    for key, color in [("minutes_for_split_half", "#2a6f97"), ("minutes_for_good_icc", "#e07a5f")]:
+        v = reliab.get(key, "")
+        if v not in ("", None):
+            ax.axvline(float(v), color=color, linestyle="--", alpha=0.6)
+    ax.set_ylim(0, 1.02)
+    ax.set_xlabel("Clean data used (minutes)")
+    ax.set_ylabel("Reliability")
+    ax.set_title("How reliability grows with recording length")
+    ax.legend(loc="lower right")
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+    p = os.path.join(out_dir, "fig_reliability_by_duration.png")
     fig.savefig(p, bbox_inches="tight"); plt.close(fig)
     return p
 
@@ -212,13 +246,15 @@ def quality_scatter(master: pd.DataFrame, out_dir: str) -> Optional[str]:
 
 
 def build_all(master: pd.DataFrame, results: List[Any], regional_df: pd.DataFrame,
-              out_dir: str, quiet: str = "rest", noisy: str = "movie") -> Dict[str, str]:
+              out_dir: str, quiet: str = "rest", noisy: str = "movie",
+              reliab: Optional[dict] = None) -> Dict[str, str]:
     figs: Dict[str, Optional[str]] = {
         "exponent_by_condition": exponent_by_condition(master, out_dir),
         "test_retest": test_retest_scatter(master, out_dir),
         "condition_paired": condition_paired(master, out_dir, quiet, noisy),
         "regional": regional_bar(regional_df, out_dir),
-        "convergence_overlay": convergence_overlay(results, out_dir),
+        "reliability_by_duration": reliability_curve(reliab or {}, out_dir),
+        "duration_overlay": duration_overlay(results, out_dir),
         "quality": quality_scatter(master, out_dir),
     }
     return {k: v for k, v in figs.items() if v}

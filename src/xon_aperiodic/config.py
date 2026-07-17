@@ -82,15 +82,16 @@ DEFAULTS: Dict[str, Any] = {
     "analysis": {
         "block_analysis": True,
         "block_length_min": 5.0,
-        "convergence_analysis": True,
-        "convergence_tolerance": 0.1,
-        "convergence_step_sec": 15.0,
+        "reliability_analysis": True,
+        "reliability_step_sec": 30.0,
     },
     "stats": {
         "enabled": True,
         "regions": {"frontal": ["F3", "F4"], "central": ["C3", "C4", "Cz"], "parietal": ["P3", "P4"]},
         "quiet_condition": "rest",
         "noisy_condition": "movie",
+        "reliability_split_half_target": 0.90,
+        "reliability_icc_target": 0.75,
     },
 }
 

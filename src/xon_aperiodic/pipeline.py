@@ -30,7 +30,7 @@ from .preprocess import (
 )
 from .epoching import make_awake_epochs
 from .artifacts import reject_artifacts
-from .spectral import fit_segment, compute_convergence
+from .spectral import fit_segment, compute_duration_curve
 from . import diagnostics
 
 
@@ -41,15 +41,14 @@ class PipelineResult:
     metadata: FileMetadata
     results_df: pd.DataFrame
     master_record: Dict[str, Any]
-    convergence_df: pd.DataFrame = field(default_factory=pd.DataFrame)
+    duration_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     output_paths: Dict[str, str] = field(default_factory=dict)
 
 
 def _build_master_record(meta: FileMetadata, input_xdf: str, settings_cols: Dict[str, Any],
                          res: Dict[str, Any], full_rows: List[Dict[str, Any]],
                          raw_after_ica: mne.io.BaseRaw, interpolated_channels: List[str],
-                         excluded_channels: List[str], exponent_flagged: List[str],
-                         convergence_summary: Dict[str, Any]) -> Dict[str, Any]:
+                         excluded_channels: List[str], exponent_flagged: List[str]) -> Dict[str, Any]:
     """Flatten EVERYTHING about one file into a single wide row (the master CSV)."""
     qc_stats = dict(res.get("qc_stats", {}) or {})
     per_channel_hits = qc_stats.pop("per_channel_hits", {}) or {}
@@ -75,8 +74,6 @@ def _build_master_record(meta: FileMetadata, input_xdf: str, settings_cols: Dict
         AVERAGE_offset=avg_row.get("aperiodic_offset", ""),
         AVERAGE_r_squared=avg_row.get("r_squared", ""),
         AVERAGE_n_channels_averaged=avg_row.get("n_channels_averaged", ""),
-        minutes_to_stability=convergence_summary.get("minutes_to_stability", ""),
-        convergence_converged=convergence_summary.get("converged", ""),
     ))
 
     logvar_by_ch: Dict[str, float] = {}
@@ -370,25 +367,20 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
                 err.update(settings_cols)
                 all_rows.append(err)
 
-    # ---- convergence analysis ----
-    convergence_df = pd.DataFrame()
-    convergence_summary: Dict[str, Any] = {}
-    if an.get("convergence_analysis", True):
-        step("STEP 8: Convergence analysis (exponent stability vs clean minutes)")
-        full_avg = next((r for r in full_rows if r.get("channel") == "AVERAGE"), {})
-        full_exp = full_avg.get("aperiodic_exponent")
-        convergence_df, convergence_summary = compute_convergence(
-            clean_epochs, epoch_len, fooof_range, fooof_settings, full_exp,
-            tolerance=float(an.get("convergence_tolerance", 0.1)),
-            step_sec=float(an.get("convergence_step_sec", 15.0)),
+    # ---- duration curve (raw material for cohort reliability-vs-duration) ----
+    duration_df = pd.DataFrame()
+    if an.get("reliability_analysis", True):
+        step("STEP 8: Duration curve (exponent vs clean minutes, all/odd/even)")
+        duration_df = compute_duration_curve(
+            clean_epochs, epoch_len, fooof_range, fooof_settings,
+            step_sec=float(an.get("reliability_step_sec", 30.0)),
             interpolated_channels=interpolated_channels)
-        if not convergence_df.empty:
-            conv_path = os.path.join(out_dir, f"convergence_{subject_id}.csv")
-            convergence_df.to_csv(conv_path, index=False)
-            mts = convergence_summary.get("minutes_to_stability", "")
-            info(f"  Minutes of clean data to reach stability (+/-"
-                 f"{convergence_summary.get('convergence_tolerance')}): {mts}")
-            diagnostics.save_convergence_plot(convergence_df, convergence_summary, subject_id, out_dir)
+        if not duration_df.empty:
+            dpath = os.path.join(out_dir, f"durationcurve_{subject_id}.csv")
+            duration_df.to_csv(dpath, index=False)
+            info(f"  Duration curve: {len(duration_df)} points up to "
+                 f"{duration_df['clean_minutes'].max():.1f} min")
+            diagnostics.save_duration_plot(duration_df, subject_id, out_dir)
 
     results_df = pd.DataFrame(all_rows)
     results_path = os.path.join(out_dir, f"aperiodic_results_{subject_id}.csv")
@@ -411,7 +403,7 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
 
     master_record = _build_master_record(
         meta, input_xdf, settings_cols, res, full_rows, raw_after_ica,
-        interpolated_channels, excluded_channels, exponent_flagged, convergence_summary)
+        interpolated_channels, excluded_channels, exponent_flagged)
 
     # per-file human-readable QC report
     qc_report_path = diagnostics.write_qc_report(
@@ -423,5 +415,5 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
     if block_plot_path:
         output_paths["block_plot"] = block_plot_path
     return PipelineResult(subject_id=subject_id, metadata=meta, results_df=results_df,
-                          master_record=master_record, convergence_df=convergence_df,
+                          master_record=master_record, duration_df=duration_df,
                           output_paths=output_paths)

@@ -253,20 +253,107 @@ def regional_test(master: pd.DataFrame, regions: Dict[str, List[str]]) -> Dict[s
 
 
 # --------------------------------------------------------------------------
-# 5. convergence (how few minutes are enough)
+# 5. reliability vs recording length ("how few minutes are enough")
 # --------------------------------------------------------------------------
-def convergence_summary(master: pd.DataFrame) -> Dict[str, Any]:
-    d = _ok(master)
-    if d.empty or "minutes_to_stability" not in d.columns:
-        return dict(note="convergence analysis not run")
-    vals = _num(d["minutes_to_stability"]).dropna().values
-    n_converged = int(len(vals))
-    n_total = int(len(d))
-    out = dict(n_recordings=n_total, n_converged=n_converged,
-               pct_converged=round(100.0 * n_converged / n_total, 1) if n_total else 0.0)
-    if len(vals) > 0:
-        out.update({f"minutes_to_stability_{k}": v for k, v in _describe(vals).items()})
-    return out
+def _spearman_brown(r: float) -> float:
+    """Correct a half-length (odd vs even) correlation up to full-length reliability."""
+    if r <= -1:
+        return -1.0
+    return float(2.0 * r / (1.0 + r))
+
+
+def reliability_by_duration(results: List[Any], split_half_target: float = 0.90,
+                            icc_target: float = 0.75, grid_step_min: float = 0.5,
+                            min_recordings: int = 4) -> Dict[str, Any]:
+    """How reliable the exponent estimate is as a function of how much clean data is used.
+
+    Two grounded curves, both as a function of duration L:
+      * split-half (odd vs even epochs) internal consistency, Spearman-Brown corrected
+        (target >= 0.90; Leyva-style epoch-increment reliability), and
+      * between-session test-retest ICC(2,1) (target >= 0.75 = 'good'; McKeown 2024),
+    plus the shortest L at which each target is met. This is the rigorous answer to
+    'how few minutes of a noisy recording match a long one?'.
+    """
+    # gather per-recording duration curves with metadata
+    curves = []
+    for r in results:
+        d = getattr(r, "duration_df", None)
+        if d is None or d.empty:
+            continue
+        meta = getattr(r, "metadata", None)
+        curves.append(dict(
+            participant=getattr(meta, "participant", ""), session=getattr(meta, "session", ""),
+            condition=getattr(meta, "condition", ""), df=d.sort_values("clean_minutes")))
+    if len(curves) < min_recordings:
+        return dict(note=f"need >= {min_recordings} recordings with a duration curve "
+                         f"(have {len(curves)})", curve=pd.DataFrame())
+
+    max_minutes = max(float(c["df"]["clean_minutes"].max()) for c in curves)
+    grid = np.arange(grid_step_min, max_minutes + 1e-6, grid_step_min)
+
+    def _at(df: pd.DataFrame, col: str, L: float) -> Optional[float]:
+        x = df["clean_minutes"].values
+        if L > x.max() + 1e-6 or L < x.min() - 1e-6:
+            return None
+        y = pd.to_numeric(df[col], errors="coerce").values
+        ok = np.isfinite(y)
+        if ok.sum() < 2:
+            return None
+        return float(np.interp(L, x[ok], y[ok]))
+
+    rows = []
+    for L in grid:
+        odd, even, all_by_key = [], [], {}
+        errs = []
+        for c in curves:
+            df = c["df"]
+            eo, ee = _at(df, "exponent_odd", L), _at(df, "exponent_even", L)
+            ea = _at(df, "exponent_all", L)
+            if eo is not None and ee is not None:
+                odd.append(eo); even.append(ee)
+            if ea is not None:
+                # subject for test-retest = participant+condition; raters = session
+                key = (str(c["participant"]), str(c["condition"]))
+                all_by_key.setdefault(key, {})[str(c["session"])] = ea
+                full = _at(df, "exponent_all", float(df["clean_minutes"].max()))
+                if full is not None:
+                    errs.append(abs(ea - full))
+        n_split = len(odd)
+        sh = ""
+        if n_split >= min_recordings and np.std(odd) > 0 and np.std(even) > 0 and _sps is not None:
+            r_half = float(_sps.pearsonr(odd, even)[0])
+            sh = round(_spearman_brown(r_half), 4)
+        # ICC across session pairs
+        mat = [list(v.values()) for v in all_by_key.values() if len(v) >= 2]
+        # keep only balanced 2-session rows
+        two = [m[:2] for m in mat if len(m) >= 2]
+        icc = ""
+        n_icc = len(two)
+        if n_icc >= min_recordings:
+            iccv = _icc_2_1(np.array(two, dtype=float))
+            icc = round(iccv, 4) if iccv is not None else ""
+        rows.append(dict(minutes=round(float(L), 3),
+                         split_half_reliability=sh, n_split_half=n_split,
+                         test_retest_icc=icc, n_icc=n_icc,
+                         mean_abs_error_to_full=round(float(np.mean(errs)), 4) if errs else ""))
+
+    curve = pd.DataFrame(rows)
+
+    def _first_at_least(col: str, target: float) -> str:
+        sub = curve[pd.to_numeric(curve[col], errors="coerce") >= target]
+        return float(sub["minutes"].iloc[0]) if len(sub) else ""
+
+    return dict(
+        curve=curve,
+        split_half_target=split_half_target, icc_target=icc_target,
+        minutes_for_split_half=_first_at_least("split_half_reliability", split_half_target),
+        minutes_for_good_icc=_first_at_least("test_retest_icc", icc_target),
+        max_split_half=float(pd.to_numeric(curve["split_half_reliability"], errors="coerce").max())
+            if curve["split_half_reliability"].astype(str).str.len().gt(0).any() else "",
+        max_icc=float(pd.to_numeric(curve["test_retest_icc"], errors="coerce").max())
+            if curve["test_retest_icc"].astype(str).str.len().gt(0).any() else "",
+        n_recordings=len(curves),
+    )
 
 
 def _safe_float(x: Any) -> Optional[float]:
@@ -281,13 +368,14 @@ def _safe_float(x: Any) -> Optional[float]:
 # --------------------------------------------------------------------------
 # assemble a text summary
 # --------------------------------------------------------------------------
-def compute_all(master: pd.DataFrame, regions: Dict[str, List[str]], quiet: str, noisy: str
-                ) -> Dict[str, Any]:
+def compute_all(master: pd.DataFrame, results: List[Any], regions: Dict[str, List[str]],
+                quiet: str, noisy: str, split_half_target: float = 0.90,
+                icc_target: float = 0.75) -> Dict[str, Any]:
     return dict(
         quality=quality_summary(master),
-        reliability=reliability(master),
+        reliability=reliability(master),                       # full-length test-retest ICC
         contrast=condition_contrast(master, quiet, noisy),
         regional=regional_summary(master, regions),
         regional_test=regional_test(master, regions),
-        convergence=convergence_summary(master),
+        duration_reliability=reliability_by_duration(results, split_half_target, icc_target),
     )

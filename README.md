@@ -15,8 +15,8 @@ runs the agreed processing, and produces results you could put in a paper.
 ## What you get
 
 For **each recording**: the aperiodic exponent per channel and an across-channel average,
-a diagnostic figure, a convergence plot ("how few minutes were enough?"), and a
-self-contained **HTML QC report** showing exactly what ran, what got cut, and why.
+a diagnostic figure, an exponent-vs-recording-length plot, and a self-contained
+**HTML QC report** showing exactly what ran, what got cut, and why.
 
 For the **whole cohort**: a wide `master_everything.csv` (one row per recording with every
 setting, per-stage rejection counts, and per-channel detail), a long results CSV, a set of
@@ -27,7 +27,8 @@ answers the study's questions:
 - **Test–retest reliability** — ICC(2,1) across each participant's repeat sessions.
 - **Quiet vs noisy** — rest vs movie paired contrast (does it survive movement/noise?).
 - **Scalp region** — frontal / central / parietal comparison.
-- **How few minutes are enough** — convergence of the exponent as clean data accumulates.
+- **How few minutes are enough** — reliability (split-half + test-retest ICC) as a function
+  of recording length, with the shortest length that reaches "good" reliability.
 
 ---
 
@@ -128,7 +129,7 @@ xon-aperiodic-pipeline/
 │   ├── metadata.py               # participant/session/condition (regex + manifest)
 │   ├── preprocess.py             # montage, filter, bad channels, interpolate, ICA, reference
 │   ├── epoching.py, artifacts.py # epoching + 4-way rejection with per-channel attribution
-│   ├── spectral.py               # Welch PSD -> FOOOF exponent + convergence
+│   ├── spectral.py               # Welch PSD -> FOOOF exponent + duration curve
 │   ├── pipeline.py               # one file, two-pass exponent/high-offender logic
 │   ├── batch.py                  # many files -> combined + master CSV
 │   ├── diagnostics.py            # per-file plots + HTML QC report
