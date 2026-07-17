@@ -11,6 +11,7 @@ Advanced / rarely-touched settings still live in config/config.yaml.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -36,8 +37,16 @@ def _get_config_arg() -> str | None:
 def main() -> None:
     st.set_page_config(page_title="Xon Aperiodic Pipeline", page_icon="🧠", layout="wide")
     st.title("🧠 Xon Aperiodic Pipeline")
-    st.caption("Runs fully offline on this computer — no data leaves the machine (HIPAA-safe). "
-               "Set the folder and options, then press Run.")
+    st.caption("Runs fully offline on this computer — no data leaves the machine (HIPAA-safe).")
+
+    st.info(
+        "**How to use this — 3 steps:**\n\n"
+        "1. In the box on the left (**Folder of recordings**), put the location of the folder "
+        "that holds your `.xdf` recordings.\n"
+        "2. Leave everything else as-is the first time.\n"
+        "3. Scroll down and press the big **▶ Run pipeline** button. When it finishes, your "
+        "results and a report appear right here (and are saved to the output folder).",
+        icon="👉")
 
     cfg_path = _get_config_arg() or str(default_config_path())
     cfg = load_config(cfg_path)
@@ -45,11 +54,16 @@ def main() -> None:
     ho = cfg.section("high_offender")
     er = cfg.section("exponent_rejection")
     fr = cfg.get("fooof", "freq_range", [1, 40])
+    # Friendly defaults: the double-click launcher points these at the Desktop.
+    default_input = os.environ.get("XON_DEFAULT_INPUT") or str(cfg.input_dir)
+    default_output = os.environ.get("XON_DEFAULT_OUTPUT") or str(cfg.output_dir)
 
     with st.sidebar:
         st.header("1 · Data")
-        input_dir = st.text_input("Folder of recordings", value=str(cfg.input_dir))
-        output_dir = st.text_input("Output folder", value=str(cfg.output_dir))
+        input_dir = st.text_input("Folder of recordings", value=default_input,
+                                  help="Tip: in Finder, right-click the folder, hold the Option key, "
+                                       "and choose 'Copy as Pathname' — then paste it here.")
+        output_dir = st.text_input("Output folder", value=default_output)
         pattern = st.text_input("File pattern", value=str(cfg.get("io", "file_glob", "*.xdf")),
                                 help="Use * if your files have no .xdf extension.")
         recursive = st.checkbox("Search sub-folders", value=bool(cfg.get("io", "recursive", True)))

@@ -33,43 +33,50 @@ answers the study's questions:
 
 ## Quick start
 
-You do **not** need git, and you do not need to be a programmer.
+### 👉 Never used a terminal? Start here (no coding)
 
-### Easiest: the launcher (macOS/Linux `run.sh`, Windows `run.bat`)
+1. Put all your `.xdf` recordings in one folder.
+2. **Mac:** double-click **`Start Here (Mac).command`**.  **Windows:** double-click
+   **`Start Here (Windows).bat`**.
+3. Wait ~1–2 minutes the first time — a page opens in your web browser.
+4. In that page, point the **Folder of recordings** box at your folder and press
+   **▶ Run pipeline**. Results and a report appear on the page and save to a **"Xon
+   results"** folder on your Desktop.
 
-```bash
-# 1. put your .xdf recordings in a folder (default: ./data)
-# 2. from the project folder:
-./run.sh                     # first run sets up a private environment, then processes ./data
-```
+That's the whole thing. The step-by-step version, with screenshots-in-words and what to do
+if something looks off, is in **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)**.
 
-On Windows, double-click `run.bat` or run it from a terminal. The first run creates a
-self-contained environment in `.venv` and installs everything; later runs are instant.
+> First time on a Mac, if you see *"unidentified developer"*: right-click
+> `Start Here (Mac).command` → **Open** → **Open**. Only needed once.
 
-Try it right now with **synthetic demo data** (no real data needed):
+---
 
-```bash
-./run.sh                                   # sets up the environment (first time)
-python examples/generate_synthetic_data.py # writes a demo cohort to ./data
-./run.sh                                   # process it -> see ./outputs/cohort_report.html
-```
+### For developers
 
-### Or install it as a package
+Install as a package and use the command line:
 
 ```bash
 pip install .
 xon-pipeline run --input-dir /path/to/xdf_folder --output results
+xon-pipeline gui                              # the offline GUI
+xon-pipeline streams FILE.xdf                 # inspect a file's streams
 ```
 
-### Or the drag-and-drop GUI (fully offline)
+Or clone-and-run without installing (the launcher builds a private `.venv` on first use):
 
 ```bash
-pip install ".[gui]"     # or: pip install streamlit
-xon-pipeline gui
+./run.sh run --input-dir /path/to/xdf_folder --output results   # macOS/Linux
+run.bat  run --input-dir C:\path\to\xdf_folder --output results  # Windows
 ```
 
-The GUI runs entirely on your machine (nothing is uploaded), so it is safe for real
-patient data. Point it at a folder, press **Run**, read the report.
+Try it on **synthetic demo data** (no real data needed):
+
+```bash
+python examples/generate_synthetic_data.py    # writes a demo cohort to ./data
+./run.sh                                       # -> ./outputs/cohort_report.html
+```
+
+Everything runs on your machine, so it is safe for real patient data.
 
 ---
 
