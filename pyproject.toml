@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xon-aperiodic-pipeline"
+version = "1.0.0"
+description = "Portable, reproducible pipeline that turns Xon headset .xdf EEG recordings into the aperiodic (1/f) exponent, with artifact rejection, QC, publication figures, and statistics."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Harshu Pande" }]
+keywords = ["EEG", "aperiodic", "FOOOF", "specparam", "Xon", "Alzheimer", "1/f"]
+
+# Pinned lower bounds that are known to work together. `pip install .` pulls these.
+dependencies = [
+    "mne>=1.5,<2.0",
+    "fooof>=1.1",
+    "pyxdf>=1.16",
+    "numpy>=1.23",
+    "pandas>=1.5",
+    "scipy>=1.9",
+    "matplotlib>=3.6",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+gui = ["streamlit>=1.28"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+# After `pip install .` this command is available anywhere on the machine.
+xon-pipeline = "xon_aperiodic.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+xon_aperiodic = ["py.typed"]

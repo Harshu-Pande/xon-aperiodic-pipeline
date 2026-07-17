@@ -1,0 +1,153 @@
+# Xon Aperiodic Pipeline
+
+Turn **Xon headset `.xdf` EEG recordings** into the **aperiodic (1/f) exponent** — the
+excitation/inhibition marker at the heart of this Alzheimer's research — with transparent
+artifact rejection, granular quality control, publication-quality figures, and statistics.
+
+The goal of the study this serves: show that a wearable EEG headset can recover the
+aperiodic exponent **accurately, reliably, and in a few minutes in a noisy clinic room**,
+instead of needing 8 hours of clean overnight sleep EEG. This pipeline is the analysis
+engine for that claim — point it at a folder of recordings and it figures everything out,
+runs the agreed processing, and produces results you could put in a paper.
+
+---
+
+## What you get
+
+For **each recording**: the aperiodic exponent per channel and an across-channel average,
+a diagnostic figure, a convergence plot ("how few minutes were enough?"), and a
+self-contained **HTML QC report** showing exactly what ran, what got cut, and why.
+
+For the **whole cohort**: a wide `master_everything.csv` (one row per recording with every
+setting, per-stage rejection counts, and per-channel detail), a long results CSV, a set of
+**publication figures**, statistics CSVs, and a single **`cohort_report.html`** that
+answers the study's questions:
+
+- **Measurement quality / yield** — fit r², exponent distribution, clean-data retention.
+- **Test–retest reliability** — ICC(2,1) across each participant's repeat sessions.
+- **Quiet vs noisy** — rest vs movie paired contrast (does it survive movement/noise?).
+- **Scalp region** — frontal / central / parietal comparison.
+- **How few minutes are enough** — convergence of the exponent as clean data accumulates.
+
+---
+
+## Quick start
+
+You do **not** need git, and you do not need to be a programmer.
+
+### Easiest: the launcher (macOS/Linux `run.sh`, Windows `run.bat`)
+
+```bash
+# 1. put your .xdf recordings in a folder (default: ./data)
+# 2. from the project folder:
+./run.sh                     # first run sets up a private environment, then processes ./data
+```
+
+On Windows, double-click `run.bat` or run it from a terminal. The first run creates a
+self-contained environment in `.venv` and installs everything; later runs are instant.
+
+Try it right now with **synthetic demo data** (no real data needed):
+
+```bash
+./run.sh                                   # sets up the environment (first time)
+python examples/generate_synthetic_data.py # writes a demo cohort to ./data
+./run.sh                                   # process it -> see ./outputs/cohort_report.html
+```
+
+### Or install it as a package
+
+```bash
+pip install .
+xon-pipeline run --input-dir /path/to/xdf_folder --output results
+```
+
+### Or the drag-and-drop GUI (fully offline)
+
+```bash
+pip install ".[gui]"     # or: pip install streamlit
+xon-pipeline gui
+```
+
+The GUI runs entirely on your machine (nothing is uploaded), so it is safe for real
+patient data. Point it at a folder, press **Run**, read the report.
+
+---
+
+## Configuration — one file
+
+Every setting lives in [`config/config.yaml`](config/config.yaml). It is heavily commented
+and grouped in plain English. The defaults reproduce the Boere/Krigolson Xon validation
+protocol plus this lab's mentor-approved choices, so most people never touch it.
+
+Override any single setting from the command line without editing the file:
+
+```bash
+xon-pipeline run --set artifacts.reference=average --set fooof.freq_range=[2,45]
+```
+
+New to the settings, or planning to tinker a lot? See the plain-English
+[**settings cheat-sheet**](docs/SETTINGS.md) — an "I want to X → change Y" table covering
+the high-offender toggle, reference, ICA, FOOOF band, thresholds, and more. Or just tick
+them in the GUI.
+
+**How files are understood.** The pipeline reads each file's participant / session /
+condition from its **name** using editable regex patterns in the config
+(`P004_S002_rest.xdf` → participant P004, session 2, condition rest). If naming changes in
+future, edit one pattern — or drop in a `manifest.csv` (see `config/manifest_example.csv`)
+that overrides the parsing. No code changes ever needed.
+
+---
+
+## HIPAA / data safety
+
+- Real Xon `.xdf` files contain protected patient data. **They are never committed to git
+  and never leave the machine.** The `.gitignore` blocks `data/`, `outputs/`, and every
+  EEG file type by default.
+- The pipeline makes **zero network calls** — it runs fully offline, including the GUI.
+- Because real data can't be used for testing, the pipeline is validated against
+  **synthetic recordings with a known exponent** (see `examples/` and `tests/`).
+
+---
+
+## Project layout
+
+```
+xon-aperiodic-pipeline/
+├── config/config.yaml            # THE single settings file
+├── run.sh / run.bat              # one-command launchers (no git/experience needed)
+├── src/xon_aperiodic/
+│   ├── config.py                 # load + validate config
+│   ├── io_xdf.py                 # load .xdf, auto-detect the EEG stream
+│   ├── metadata.py               # participant/session/condition (regex + manifest)
+│   ├── preprocess.py             # montage, filter, bad channels, interpolate, ICA, reference
+│   ├── epoching.py, artifacts.py # epoching + 4-way rejection with per-channel attribution
+│   ├── spectral.py               # Welch PSD -> FOOOF exponent + convergence
+│   ├── pipeline.py               # one file, two-pass exponent/high-offender logic
+│   ├── batch.py                  # many files -> combined + master CSV
+│   ├── diagnostics.py            # per-file plots + HTML QC report
+│   ├── reporting/                # cohort stats, publication figures, cohort report
+│   ├── cli.py                    # `xon-pipeline` command
+│   └── gui.py                    # offline Streamlit GUI
+├── tests/                        # pytest suite (synthetic data)
+├── examples/                     # synthetic data generator + demo
+└── docs/                         # USAGE.md and the methods walkthrough
+```
+
+See [`docs/USAGE.md`](docs/USAGE.md) for a full walkthrough of every command and output,
+and [`docs/PIPELINE_WALKTHROUGH.md`](docs/PIPELINE_WALKTHROUGH.md) for the methodology and
+the rationale behind each artifact-handling choice.
+
+---
+
+## What was ported from the original script
+
+This is a modular, installable rebuild of the single-file `xon_xdf_aperiodic_pipeline.py`.
+Every validated behaviour is preserved: XDF stream auto-detection, `standard_1020` montage,
+robust-variance + `annotate_amplitude` bad-channel detection, average/spline interpolation
+(flagged and excluded from the average), the manually-implemented gradient reject matched to
+Krigolson's routine, the two-pass **exponent-based** channel rejection (fit → reject on the
+final value → refit), the experimental **high-offender** channel toggle with its ≥15%
+rejection gate, per-channel rejection attribution, block analysis, and the wide master CSV.
+Two correctness fixes were added along the way: a stability guard on the variance
+bad-channel detector at low channel counts, and excluding reconstructed channels from the
+average reference / epoch-drop decision.

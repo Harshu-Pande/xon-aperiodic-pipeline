@@ -1,0 +1,15 @@
+# Core runtime dependencies (clone-and-run path: `pip install -r requirements.txt`).
+# These are the same as pyproject's [project.dependencies]; kept here so people who
+# don't want to install the package can still run it.
+mne>=1.5,<2.0
+fooof>=1.1
+pyxdf>=1.16
+numpy>=1.23
+pandas>=1.5
+scipy>=1.9
+matplotlib>=3.6
+pyyaml>=6.0
+
+# Optional: only needed for the drag-and-drop local GUI (`xon-pipeline gui`).
+# Uncomment to enable.
+# streamlit>=1.28

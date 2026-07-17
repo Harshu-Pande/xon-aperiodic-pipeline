@@ -1,0 +1,170 @@
+"""Command-line interface:  xon-pipeline <command>
+
+Commands
+  run       Process a folder (or one file) end-to-end. This is the usual command.
+  streams   List the streams in an .xdf file (use if auto stream-detection guesses wrong).
+  gui       Launch the offline drag-and-drop GUI (needs `pip install streamlit`).
+  config    Print the resolved configuration (after defaults + overrides).
+
+Everything is driven by config/config.yaml; --set lets you override any single key
+from the command line without editing the file, e.g.
+    xon-pipeline run --set artifacts.reference=average --set fooof.freq_range=[2,45]
+"""
+from __future__ import annotations
+
+import argparse
+import ast
+import sys
+from pathlib import Path
+from typing import Any, List, Optional
+
+from .config import Config, load_config, default_config_path
+from .logging_utils import setup_logging, info
+
+
+def _coerce(value: str) -> Any:
+    """Turn a CLI string into a Python value (int/float/bool/list/None/str)."""
+    low = value.strip().lower()
+    if low in {"none", "null", "~"}:
+        return None
+    if low in {"true", "yes"}:
+        return True
+    if low in {"false", "no"}:
+        return False
+    try:
+        return ast.literal_eval(value)
+    except Exception:
+        return value
+
+
+def _apply_overrides(cfg: Config, sets: Optional[List[str]]) -> Config:
+    for item in sets or []:
+        if "=" not in item:
+            raise SystemExit(f"--set expects section.key=value, got {item!r}")
+        dotted, raw = item.split("=", 1)
+        keys = dotted.strip().split(".")
+        node = cfg.data
+        for k in keys[:-1]:
+            node = node.setdefault(k, {})
+        node[keys[-1]] = _coerce(raw)
+    cfg.validate()
+    return cfg
+
+
+def _load(args) -> Config:
+    cfg = load_config(args.config)
+    _apply_overrides(cfg, getattr(args, "set", None))
+    if getattr(args, "input_dir", None):
+        cfg.data.setdefault("io", {})["input_dir"] = args.input_dir
+    if getattr(args, "output", None):
+        cfg.data.setdefault("io", {})["output_dir"] = args.output
+    if getattr(args, "pattern", None):
+        cfg.data.setdefault("io", {})["file_glob"] = args.pattern
+    if getattr(args, "recursive", None) is not None:
+        cfg.data.setdefault("io", {})["recursive"] = args.recursive
+    return cfg
+
+
+def cmd_run(args) -> int:
+    from .batch import run_batch, find_xdf_files
+    from .pipeline import run_pipeline
+    from .metadata import MetadataResolver
+    from .batch import order_master_columns
+    import pandas as pd
+
+    cfg = _load(args)
+    setup_logging(cfg.output_dir)
+
+    if args.input:                       # single file
+        cfg.output_dir.mkdir(parents=True, exist_ok=True)
+        result = run_pipeline(args.input, cfg=cfg)
+        # still emit a one-row master + run cohort stats (trivial cohort of 1)
+        master = order_master_columns(pd.DataFrame([result.master_record]))
+        master.to_csv(cfg.output_dir / "master_everything.csv", index=False)
+        if not args.no_stats and cfg.get("stats", "enabled", True):
+            from . import reporting
+            reporting.build_cohort_outputs(cfg, master, [result], cfg.output_dir)
+        info(f"\nDone. Outputs in: {cfg.output_dir}")
+        return 0
+
+    outputs = run_batch(cfg=cfg, run_stats=not args.no_stats)
+    info(f"\nDone. Outputs in: {cfg.output_dir}")
+    if "cohort_report" in outputs:
+        info(f"Open the cohort report: {outputs['cohort_report']}")
+    return 0
+
+
+def cmd_streams(args) -> int:
+    from .io_xdf import list_xdf_streams
+    setup_logging(None)
+    list_xdf_streams(args.file)
+    return 0
+
+
+def cmd_gui(args) -> int:
+    try:
+        import streamlit  # noqa: F401
+    except ImportError:
+        print("The GUI needs streamlit. Install it with:\n  pip install streamlit\n"
+              "then re-run:  xon-pipeline gui", file=sys.stderr)
+        return 1
+    import subprocess
+    gui_path = Path(__file__).resolve().parent / "gui.py"
+    cmd = [sys.executable, "-m", "streamlit", "run", str(gui_path)]
+    if args.config:
+        cmd += ["--", "--config", args.config]
+    return subprocess.call(cmd)
+
+
+def cmd_config(args) -> int:
+    import yaml
+    cfg = _load(args)
+    print(yaml.safe_dump(cfg.as_dict(), sort_keys=False))
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="xon-pipeline",
+                                description="Xon .xdf EEG -> aperiodic exponent pipeline.")
+    p.add_argument("--config", default=None, help="Path to config.yaml (default: repo config/config.yaml)")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    r = sub.add_parser("run", help="Process a folder (or a single file).")
+    r.add_argument("--input", default=None, help="A single .xdf file to process.")
+    r.add_argument("--input-dir", default=None, help="Folder of .xdf files (overrides config).")
+    r.add_argument("--output", default=None, help="Output folder (overrides config).")
+    r.add_argument("--pattern", default=None, help="Glob for batch mode (e.g. '*' for extensionless).")
+    r.add_argument("--recursive", dest="recursive", action="store_true", default=None,
+                   help="Search sub-folders.")
+    r.add_argument("--no-recursive", dest="recursive", action="store_false",
+                   help="Do not search sub-folders.")
+    r.add_argument("--no-stats", action="store_true", help="Skip cohort statistics/report.")
+    r.add_argument("--set", action="append", metavar="section.key=value",
+                   help="Override any config key (repeatable).")
+    r.set_defaults(func=cmd_run)
+
+    s = sub.add_parser("streams", help="List the streams in an .xdf file.")
+    s.add_argument("file", help="Path to an .xdf file.")
+    s.set_defaults(func=cmd_streams)
+
+    g = sub.add_parser("gui", help="Launch the offline drag-and-drop GUI.")
+    g.set_defaults(func=cmd_gui)
+
+    c = sub.add_parser("config", help="Print the resolved configuration and exit.")
+    c.add_argument("--set", action="append", metavar="section.key=value")
+    c.set_defaults(func=cmd_config)
+    return p
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return args.func(args)
+    except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
+        print(f"\nError: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

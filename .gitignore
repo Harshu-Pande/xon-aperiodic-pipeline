@@ -1,0 +1,53 @@
+# =============================================================================
+# HIPAA SAFETY FIRST. Nothing below is ever committed to git or pushed to a cloud.
+# Raw Xon .xdf recordings contain protected patient data and must stay on the
+# secure machine. This file makes it impossible to accidentally commit them.
+# =============================================================================
+
+# --- Patient data: never commit any recording, anywhere ---
+data/
+**/data/
+*.xdf
+*.edf
+*.fif
+*.set
+*.bdf
+manifest.csv
+**/manifest.csv
+
+# --- Pipeline outputs (results/figures/reports derived from patient data) ---
+outputs/
+**/outputs/
+*_output/
+xon_xdf_aperiodic_output/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.env
+*.egg
+
+# --- Testing / tooling ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- Allow the tiny synthetic demo data used by tests/examples (NOT patient data) ---
+!examples/synthetic_data/
+!tests/fixtures/

@@ -1,0 +1,201 @@
+# =============================================================================
+# Xon Aperiodic Pipeline - ONE config file to rule them all.
+#
+# This is the ONLY place you should ever need to change a setting. Every knob the
+# pipeline has lives here, grouped and commented in plain English. Nothing is
+# hard-coded in the code. Edit this file, save it, re-run - that's the whole loop.
+#
+# You do not need to understand every option. The defaults reproduce the
+# Boere/Krigolson Xon validation protocol plus the lab's mentor-approved choices,
+# and are what you want 95% of the time. The comments tell you what each one does
+# and when you might change it.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# INPUT / OUTPUT  (all paths are RELATIVE to where you run from, so the repo works
+# on any computer with no editing. Absolute paths are also accepted.)
+# -----------------------------------------------------------------------------
+io:
+  # Where your .xdf recordings live. Point this at your data folder.
+  # HIPAA NOTE: keep real patient .xdf files OUTSIDE the repo (this default folder
+  # is git-ignored so data never gets committed or uploaded).
+  input_dir: "data"
+  # Process sub-folders of input_dir too (e.g. one folder per participant).
+  recursive: true
+  # Which files to treat as recordings. "*.xdf" is normal. Use "*" if your Xon
+  # exports have no extension (hidden dotfiles like .DS_Store are always skipped).
+  file_glob: "*.xdf"
+  # Where results/figures/reports are written (also git-ignored).
+  output_dir: "outputs"
+
+# -----------------------------------------------------------------------------
+# METADATA  -  how the pipeline learns each file's participant / session / condition.
+#
+# It first tries to READ these from the filename using the regular-expression
+# patterns below, then, if a manifest.csv is provided, the manifest OVERRIDES /
+# fills in anything. This makes it robust to future naming changes: if someone
+# renames files, you only edit the patterns here (or drop in a manifest) - never
+# the code.
+# -----------------------------------------------------------------------------
+metadata:
+  # Regex patterns applied (case-insensitive) to the file NAME. Each must contain
+  # one capturing group () = the value to extract. Set to null to skip a field.
+  #   participant: e.g. P004, sub-012, ADRC17  ->  the person
+  #   session:     e.g. S001, ses-2, visit3    ->  which repeat visit (test-retest)
+  #   condition:   e.g. rest, movie            ->  task block
+  patterns:
+    participant: 'P0*([0-9]+)'          # captures the number in P004 -> "4" (see participant_prefix)
+    session: 'S0*([0-9]+)'              # captures 2 from S002 (handles S001/S002 3-digit naming)
+    condition: '(rest|movie|film|video)'
+  # Cosmetic prefix put back on the captured participant number (P4 -> "P004").
+  participant_prefix: "P"
+  participant_zero_pad: 3               # P4 -> P004
+  # Map any matched condition keyword to a clean canonical label used in stats.
+  condition_aliases:
+    rest: "rest"
+    movie: "movie"
+    film: "movie"
+    video: "movie"
+  # Optional manifest CSV that overrides filename parsing. Leave null to disable.
+  # Columns (any subset): file, participant, session, condition. `file` matches by
+  # file name or stem. See config/manifest_example.csv.
+  manifest: null
+
+# -----------------------------------------------------------------------------
+# XDF LOADING
+# -----------------------------------------------------------------------------
+xdf:
+  # Usually leave these null: the loader auto-picks the EEG stream by scoring all
+  # streams (prefers type/name containing "EEG"/"Xon", 100-2000 Hz, most samples).
+  # If auto-pick chooses wrong, run `xon-pipeline streams <file>` to list them,
+  # then set the exact name/type here.
+  stream_name: null
+  stream_type: null
+  # Units the device stores EEG in. Xon/LSL is normally microvolts. If your values
+  # are already in volts set "V". "uV", "mV", or "V".
+  data_units: "uV"
+
+# -----------------------------------------------------------------------------
+# CROPPING  -  trim setup time before/after the task. null = use the whole file.
+# Defaults trim to a 30-min window (60 s .. 1860 s).
+# -----------------------------------------------------------------------------
+crop:
+  start_sec: 60
+  stop_sec: 1860
+  expected_duration_min: 30.0     # only used to print a warning if far off; null to skip
+
+# -----------------------------------------------------------------------------
+# FILTERING  (Boere/Krigolson: 0.1 Hz high-pass; notch mains hum)
+# -----------------------------------------------------------------------------
+filter:
+  high_pass_hz: 0.1               # null to skip
+  notch_freq_hz: 60.0             # 60 US / 50 Europe / null to skip (harmonics auto-added)
+
+# -----------------------------------------------------------------------------
+# MONTAGE  -  electrode positions (needed for spline interpolation & avg reference)
+# -----------------------------------------------------------------------------
+montage:
+  name: "standard_1020"           # 'none' to disable. standard_1020 covers F3/F4/C3/C4/Cz/P3/P4.
+
+# -----------------------------------------------------------------------------
+# EPOCHING  (Xon papers: 1000 ms epochs, 100 ms overlap)
+# -----------------------------------------------------------------------------
+epoch:
+  length_sec: 1.0
+  overlap_sec: 0.1
+
+# -----------------------------------------------------------------------------
+# ARTIFACT REJECTION  -  the heart of getting a clean exponent from a noisy room.
+# -----------------------------------------------------------------------------
+artifacts:
+  # Epoch-level amplitude / flat / gradient (Xon papers: amp > 100 uV OR grad > 10 uV/ms).
+  amplitude_threshold_uv: 100.0
+  gradient_threshold_uv_per_ms: 10.0   # null to disable the sample-to-sample slope test
+  flat_threshold_uv: 1.0
+  # Adaptive per-recording z-score outlier rejection (null disables each).
+  variance_zscore_threshold: 3.0
+  muscle_zscore_threshold: 3.0
+  muscle_hf_hz: 30.0                   # "muscle" = excess power above this many Hz
+
+  # Automatic BAD-CHANNEL detection (whole-recording): variance z-score + flat/railing.
+  detect_bad_channels: true
+  bad_channel_zscore: 3.0
+  use_annotate_amplitude: true         # also flag flat/railing channels (MNE built-in)
+
+  # Interpolate detected bad channels, then FLAG them and EXCLUDE from the AVERAGE.
+  interpolate_bad_channels: true
+  interpolation_method: "average"      # "average" (mentor default, robust at 7 ch) or "spline"
+
+  # ICA (off by default: underpowered at 7 channels; epoch QC is the safety net).
+  run_ica: false
+  ica_n_components: null               # null = full rank (all good EEG channels)
+  ica_method: "infomax"                # "fastica" | "infomax" | "picard"
+  ica_random_state: 97
+  ica_muscle_threshold: 0.8
+  ica_eog_threshold: 3.0
+  ica_ecg_threshold: 0.3
+
+  # Re-referencing. null = keep the device ear-clip (A2) reference (Xon-paper default).
+  # "average" = average reference; or a channel name like "Cz".
+  reference: null
+
+# -----------------------------------------------------------------------------
+# EXPONENT-BASED CHANNEL REJECTION  (mentor-endorsed; kept ON)
+# A channel whose FINAL fitted exponent is implausibly flat (< threshold) is treated
+# as EMG-contaminated, interpolated, and excluded. Two-pass so the number rejected on
+# equals the number reported. Guarded: never leaves < 3 good channels.
+# -----------------------------------------------------------------------------
+exponent_rejection:
+  enabled: true
+  threshold: 0.5
+
+# -----------------------------------------------------------------------------
+# HIGH-OFFENDER CHANNEL REJECTION  (EXPERIMENTAL - OFF by default, kept available)
+# If one channel causes more than `share_threshold`% of a session's rejected epochs
+# (a lone electrode catching bursts the whole-recording detector misses), drop or
+# interpolate just that channel - but only when the session's overall rejection is
+# already high (min_reject_pct gate), so clean sessions never lose a channel.
+# -----------------------------------------------------------------------------
+high_offender:
+  enabled: false
+  share_threshold: 50.0        # % of the session's REJECTED epochs a channel must exceed
+  min_reject_pct: 15.0         # only act if overall rejection >= this (0 disables the gate)
+  action: "interpolate"        # "interpolate" (blend from good channels) or "exclude" (drop)
+
+# -----------------------------------------------------------------------------
+# SPECTRUM & FOOOF / specparam  (aperiodic exponent = the E/I marker)
+# -----------------------------------------------------------------------------
+fooof:
+  freq_range: [1, 40]          # fit band (Hz). 1-40 keeps the fit out of the EMG band.
+  aperiodic_mode: "fixed"      # "fixed" or "knee"
+  peak_width_limits: [1.0, 12.0]
+  max_n_peaks: 6
+  min_peak_height: 0.0
+  peak_threshold: 2.0
+
+# -----------------------------------------------------------------------------
+# WITHIN-RECORDING ANALYSES
+# -----------------------------------------------------------------------------
+analysis:
+  # Split the recording into blocks and fit each (shows drift over time).
+  block_analysis: true
+  block_length_min: 5.0
+  # Convergence analysis: how the exponent stabilises as clean minutes accumulate.
+  # This answers the study's core question - "how few minutes are enough?"
+  convergence_analysis: true
+  convergence_tolerance: 0.1   # exponent considered "stable" within +/- this of the full-recording value
+  convergence_step_sec: 15.0   # evaluate the running estimate every this many seconds of clean data
+
+# -----------------------------------------------------------------------------
+# COHORT STATISTICS  (run across all files after the batch, for publication)
+# -----------------------------------------------------------------------------
+stats:
+  enabled: true
+  # Channel -> scalp region grouping, for regional analyses.
+  regions:
+    frontal: [F3, F4]
+    central: [C3, C4, Cz]
+    parietal: [P3, P4]
+  # Which condition is the "quiet" vs "noisy" contrast (rest vs movie robustness).
+  quiet_condition: "rest"
+  noisy_condition: "movie"
