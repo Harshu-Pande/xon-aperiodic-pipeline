@@ -29,7 +29,8 @@ if not exist ".venv" (
   call .venv\Scripts\activate.bat
   python -m pip install --upgrade pip >nul 2>nul
   echo Installing the pipeline ^(only what's missing^)...
-  python -m pip install -e . >nul
+  REM Dependencies only; the code runs straight from src\ via PYTHONPATH (more reliable).
+  python -m pip install -r requirements.txt >nul
 ) else (
   call .venv\Scripts\activate.bat
 )
@@ -47,9 +48,10 @@ if not exist "%USERPROFILE%\Desktop\Open Xon Pipeline.bat" (
   echo Tip: a shortcut 'Open Xon Pipeline' was placed on your Desktop - double-click it next time.
 )
 
+set "PYTHONPATH=%CD%\src;%PYTHONPATH%"
 if "%~1"=="" (
-  xon-pipeline run
+  python -m xon_aperiodic.cli run
 ) else (
-  xon-pipeline %*
+  python -m xon_aperiodic.cli %*
 )
 endlocal

@@ -72,12 +72,14 @@ if [ ! -d ".venv" ]; then
   source .venv/bin/activate
   python -m pip install --upgrade pip >/dev/null 2>&1 || true
   echo "Installing the pipeline (only what's missing)…"
-  python -m pip install -e . >/dev/null
+  # Install DEPENDENCIES only (not the package). We run the code straight from src/ via
+  # PYTHONPATH below, which is far more reliable than pip's editable-install console script.
+  python -m pip install -r requirements.txt >/dev/null
 else
   # shellcheck disable=SC1091
   source .venv/bin/activate
-  # if we just auto-updated, catch any new dependencies (src is editable, so already live)
-  [ "${XON_UPDATED:-0}" = "1" ] && python -m pip install -e . >/dev/null 2>&1 || true
+  # if we just auto-updated, catch any new dependencies (code runs live from src/)
+  [ "${XON_UPDATED:-0}" = "1" ] && python -m pip install -r requirements.txt >/dev/null 2>&1 || true
 fi
 
 # The desktop GUI uses optional drag-and-drop support (tiny, fast). Install once; the GUI
@@ -98,8 +100,11 @@ if [ ! -e "$DESKTOP_LAUNCHER" ] && [ -d "$HOME/Desktop" ]; then
   echo "Tip: a shortcut 'Open Xon Pipeline' was placed on your Desktop — double-click it next time."
 fi
 
+# Run the code straight from src/ (robust: no dependency on an editable-install console
+# script). PYTHONPATH is also inherited by parallel worker processes and the web GUI.
+export PYTHONPATH="$(pwd)/src${PYTHONPATH:+:$PYTHONPATH}"
 if [ "$#" -eq 0 ]; then
-  exec xon-pipeline run
+  exec python -m xon_aperiodic.cli run
 else
-  exec xon-pipeline "$@"
+  exec python -m xon_aperiodic.cli "$@"
 fi
