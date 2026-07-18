@@ -1,74 +1,77 @@
-# Getting started — the no-coding guide
+# Getting started
 
-This is for people who have **never used a terminal** and don't want to. Follow it
-exactly and you'll have results in a few minutes.
+Two ways to install. The first avoids every macOS security prompt and needs no
+administrator password — recommended for lab computers. Both take a few minutes the
+first time and are quick thereafter.
 
-## What you need
+---
 
-- A Mac (or Windows) computer.
-- A folder containing your Xon `.xdf` recordings.
+## Option A — recommended (one line, no security prompts, no admin)
 
-## Step 1 — Download the pipeline
+macOS flags *anything* downloaded through a web browser with a security warning — it's
+not specific to this software. Installing through Terminal sidesteps that entirely.
 
-If you already have the `xon-aperiodic-pipeline` folder on your computer, skip to Step 2.
+1. Open **Terminal** (press ⌘-Space, type `Terminal`, press Return).
+2. Copy the line below, paste it into Terminal, and press Return:
 
-Otherwise, on the GitHub page click the green **Code** button → **Download ZIP**. Then
-double-click the downloaded ZIP to unzip it. You now have a folder called
-`xon-aperiodic-pipeline`.
+```bash
+cd ~/Desktop && curl -L https://github.com/Harshu-Pande/xon-aperiodic-pipeline/archive/refs/heads/main.zip -o xon.zip && unzip -oq xon.zip && cd xon-aperiodic-pipeline-main && chmod +x run.sh && ./run.sh gui
+```
 
-## Step 2 — Put your recordings in one folder
+That downloads the program to your Desktop, sets it up, and opens the app in your web
+browser. The first run takes a minute or two while it installs; after that it's fast.
 
-Make a folder for your recordings (for example, a folder called **EEG** inside your
-**Downloads**), and put all your `.xdf` files in it. They can be named anything, and it's
-fine if they don't end in `.xdf`.
+**Next time**, just open the `xon-aperiodic-pipeline-main` folder on your Desktop and
+double-click **`Start Here (Mac).command`** — no warning will appear, because the setup
+already cleared the download flag.
 
-## Step 3 — Start the app (no typing)
+**To update later**, paste the same line again; it refreshes to the newest version.
 
-**On a Mac:** open the `xon-aperiodic-pipeline` folder and **double-click the file named
-`Start Here (Mac).command`**.
+---
 
-- A black window opens and shows some text — that's normal. The **first time only**, it
-  spends 1–2 minutes setting itself up. Leave it alone; don't close it.
-- Then a page automatically opens in your web browser. That's the app.
+## Option B — download and double-click
 
-> If macOS says *"cannot be opened because it is from an unidentified developer"*:
-> right-click the file → **Open** → **Open**. You only do this once.
+1. On the GitHub page, click the green **Code** button → **Download ZIP**, then
+   double-click the ZIP to unzip it.
+2. Open the `xon-aperiodic-pipeline` folder and double-click **`Start Here (Mac).command`**
+   (Windows: **`Start Here (Windows).bat`**).
+3. The first time, macOS may say the file is *"from an unidentified developer."* This is
+   the standard warning for any downloaded file. To proceed **without an admin password**:
+   **right-click** (or Control-click) the file → **Open** → **Open**. You only do this once.
 
-**On Windows:** double-click **`Start Here (Windows).bat`** instead. Same idea.
+If your Mac is managed by IT and even right-click → Open is blocked, use **Option A**
+instead — it never triggers the warning.
 
-## Step 4 — Run it
+---
 
-In the browser page:
+## Running it
 
-1. On the left, the **Folder of recordings** box should point at your recordings folder.
-   If not, put the correct folder there. (Easiest way to get a folder's location on a Mac:
-   right-click the folder in Finder, hold the **Option** key, and choose
-   **"Copy as Pathname"**, then paste it into the box.)
-2. Leave all the other options as they are the first time.
-3. Press the big blue **▶ Run pipeline** button.
-4. Wait. When it's done you'll see 🎈 and your results appear right on the page — a table,
-   a report, and figures. They're also saved to the output folder (by default a **"Xon
-   results"** folder on your Desktop).
+1. Put your recordings in a folder (anywhere — they can be named anything, and it's fine
+   if they don't end in `.xdf`).
+2. When the app opens in your browser, click **📁 Browse** next to "Folder of recordings"
+   and select that folder. (No need to type or paste a path — but if you prefer to, the
+   box accepts a pasted path and cleans up quotes and spaces automatically.)
+3. The common settings have sensible defaults; adjust anything you like, or open
+   **Advanced settings** for the full set. Every field has a small **?** with an explanation.
+4. Press **▶ Run pipeline**. Results, figures, and a report appear on the page and are
+   saved to your output folder.
 
-## Step 5 — Read your results
+## Reading your results
 
-The most important file is **`cohort_report.html`** in the output folder — double-click it
-to open it in your browser. It walks through everything in plain language: how reliable the
-recordings were, rest vs movie, how few minutes were needed, and more.
+Open the output folder. The three files most people want are at the top:
 
-Each recording also gets its own **`qc_report_<name>.html`** you can open the same way.
+- **`cohort_report.html`** — the plain-language summary of the whole study.
+- **`gallery.html`** — every recording's diagnostic figure on one page.
+- **`master_everything.csv`** — one row per recording with all the numbers.
 
-## Changing settings later
+Everything granular (per-recording tables, per-recording QC reports, individual figures)
+is tucked into the `per_recording/`, `figures/`, and `statistics/` sub-folders so the top
+level stays clean.
 
-Once you're comfortable, the app's left sidebar lets you flip things on and off with
-checkboxes and sliders (like the high-offender channel rejection). For a full list of what
-each setting does, see [`SETTINGS.md`](SETTINGS.md). You never have to edit code.
+## If something isn't working
 
-## If something goes wrong
-
-- **"No files found"** — your recordings folder path is wrong, or the box is pointing at an
-  empty folder. Double-check Step 4.1.
-- **The black window closed instantly** — try again; if it keeps happening, tell Claude what
-  the window said.
-- **Anything else** — take a screenshot of the black window or the browser page and send it
-  over; that's usually enough to sort it out.
+- **No recordings found** — the folder is wrong or empty; re-select it with 📁 Browse.
+- **It's asking me something in the Terminal window** — it shouldn't; if it does, send a
+  screenshot and it'll be sorted.
+- **Anything else** — a screenshot of the browser page or the Terminal window is usually
+  all that's needed to diagnose it.

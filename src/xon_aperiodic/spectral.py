@@ -200,21 +200,32 @@ def _avg_psd_exponent(epochs_subset: mne.Epochs, epoch_length_sec: float,
         return float("nan"), float("nan")
 
 
+def _fit_mean_psd(freqs: np.ndarray, psd_mean: np.ndarray, fooof_freq_range: Sequence[float],
+                  fooof_settings: Dict[str, Any]) -> Tuple[float, float]:
+    mask = np.isfinite(psd_mean) & (psd_mean > 0)
+    if mask.sum() < 5:
+        return float("nan"), float("nan")
+    try:
+        _, metrics = fit_fooof(freqs[mask], psd_mean[mask], fooof_freq_range, fooof_settings, verbose=False)
+        return float(metrics["aperiodic_exponent"]), float(metrics["r_squared"])
+    except Exception:
+        return float("nan"), float("nan")
+
+
 def compute_duration_curve(epochs: mne.Epochs, epoch_length_sec: float,
                            fooof_freq_range: Sequence[float], fooof_settings: Dict[str, Any],
-                           step_sec: float = 30.0, interpolated_channels: Sequence[str] = ()
-                           ) -> pd.DataFrame:
+                           step_sec: float = 30.0, interpolated_channels: Sequence[str] = (),
+                           max_points: int = 20) -> pd.DataFrame:
     """How the exponent estimate behaves as clean data accumulates - the raw material
     for the reliability-vs-duration analysis.
 
-    For each cumulative duration (first k clean epochs, stepping by ``step_sec``) we fit
-    the channel-averaged exponent three ways:
-      * ``exponent_all``  - all first-k epochs (the estimate you'd report at that length)
-      * ``exponent_odd``  - the odd-indexed epochs within the first k
-      * ``exponent_even`` - the even-indexed epochs within the first k
-    The odd/even split lets the cohort layer compute split-half (internal-consistency)
-    reliability at each duration; ``exponent_all`` across sessions gives test-retest
-    reliability at each duration. Returns one row per duration.
+    For each cumulative duration (first k clean epochs) we fit the channel-averaged
+    exponent three ways: all / odd / even epochs within the first k. The odd/even split
+    powers split-half reliability; ``exponent_all`` across sessions powers test-retest.
+
+    FAST: the per-epoch Welch PSD is computed ONCE, then each cumulative estimate is just
+    a mean over the first-k per-epoch spectra (+ one FOOOF fit) - instead of re-running
+    Welch at every duration, which is what made this step slow on long recordings.
     """
     interp_set = {str(c).upper() for c in interpolated_channels}
     n_total = len(epochs)
@@ -224,19 +235,40 @@ def compute_duration_curve(epochs: mne.Epochs, epoch_length_sec: float,
     ch_names = list(epochs.ch_names)
     keep_idx = [i for i, c in enumerate(ch_names) if c.upper() not in interp_set] or list(range(len(ch_names)))
 
+    # per-epoch PSD, computed once
+    sfreq = epochs.info["sfreq"]
+    n_samples = int(round(epoch_length_sec * sfreq))
+    n_fft = min(int(round(4.0 * sfreq)), n_samples)
+    n_overlap = n_fft // 2 if n_fft < n_samples else 0
+    fmax = min(100.0, sfreq / 2.0 - 1.0)
+    try:
+        spec = epochs.compute_psd(method="welch", fmin=1.0, fmax=fmax, n_fft=n_fft,
+                                  n_overlap=n_overlap, verbose=False)
+        freqs = np.asarray(spec.freqs)
+        per_epoch = np.asarray(spec.get_data())          # epochs x channels x freqs
+    except Exception:
+        return pd.DataFrame()
+    good = np.isfinite(freqs) & (freqs > 0)
+    freqs = freqs[good]
+    per_epoch = per_epoch[:, :, good]
+    # channel-averaged per-epoch spectrum over the kept channels
+    ch_avg = per_epoch[:, keep_idx, :].mean(axis=1)      # epochs x freqs
+
     step_epochs = max(1, int(round(step_sec / epoch_length_sec)))
-    ks = list(range(2 * step_epochs, n_total + 1, step_epochs))  # start a little in so odd/even are stable
+    ks = list(range(2 * step_epochs, n_total + 1, step_epochs))
     if not ks or ks[-1] != n_total:
         ks.append(n_total)
+    if len(ks) > max_points:                              # cap for a clean, bounded curve
+        idx = np.linspace(0, len(ks) - 1, max_points).round().astype(int)
+        ks = sorted(set(ks[i] for i in idx))
 
     rows = []
     for k in ks:
-        sub = epochs[:k]
-        odd = sub[list(range(0, k, 2))]
-        even = sub[list(range(1, k, 2))]
-        exp_all, r2_all = _avg_psd_exponent(sub, epoch_length_sec, fooof_freq_range, fooof_settings, keep_idx)
-        exp_odd, _ = _avg_psd_exponent(odd, epoch_length_sec, fooof_freq_range, fooof_settings, keep_idx)
-        exp_even, _ = _avg_psd_exponent(even, epoch_length_sec, fooof_freq_range, fooof_settings, keep_idx)
+        odd_i = list(range(0, k, 2))
+        even_i = list(range(1, k, 2))
+        exp_all, r2_all = _fit_mean_psd(freqs, ch_avg[:k].mean(axis=0), fooof_freq_range, fooof_settings)
+        exp_odd, _ = _fit_mean_psd(freqs, ch_avg[odd_i].mean(axis=0), fooof_freq_range, fooof_settings)
+        exp_even, _ = _fit_mean_psd(freqs, ch_avg[even_i].mean(axis=0), fooof_freq_range, fooof_settings)
         rows.append(dict(clean_minutes=round(k * epoch_length_sec / 60.0, 4), clean_epochs=k,
                          exponent_all=round(exp_all, 6), exponent_odd=round(exp_odd, 6),
                          exponent_even=round(exp_even, 6), r2_all=round(r2_all, 6)))

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import os
 import sys
 from pathlib import Path
 from typing import Any, List, Optional
@@ -101,6 +102,16 @@ def cmd_streams(args) -> int:
     return 0
 
 
+def _silence_streamlit_prompt() -> None:
+    """Stop Streamlit's first-run 'enter your email' prompt and usage telemetry, so
+    the app opens straight to the interface (a senior scientist should never be asked
+    to register or answer terminal questions)."""
+    cred = Path.home() / ".streamlit" / "credentials.toml"
+    if not cred.exists():
+        cred.parent.mkdir(parents=True, exist_ok=True)
+        cred.write_text('[general]\nemail = ""\n')
+
+
 def cmd_gui(args) -> int:
     try:
         import streamlit  # noqa: F401
@@ -109,11 +120,16 @@ def cmd_gui(args) -> int:
               "then re-run:  xon-pipeline gui", file=sys.stderr)
         return 1
     import subprocess
+    _silence_streamlit_prompt()
+    env = dict(os.environ)
+    env["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
+    env["STREAMLIT_GLOBAL_SHOW_WARNING_ON_DIRECT_EXECUTION"] = "false"
     gui_path = Path(__file__).resolve().parent / "gui.py"
-    cmd = [sys.executable, "-m", "streamlit", "run", str(gui_path)]
+    cmd = [sys.executable, "-m", "streamlit", "run", str(gui_path),
+           "--browser.gatherUsageStats", "false", "--server.headless", "false"]
     if args.config:
         cmd += ["--", "--config", args.config]
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, env=env)
 
 
 def cmd_config(args) -> int:

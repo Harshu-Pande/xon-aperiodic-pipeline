@@ -1,0 +1,38 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Diagnostics gallery</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:1.5rem;color:#22333b;background:#fafbfc}
+h1{font-size:1.5rem;margin:0 0 4px}
+.sub{color:#5a6b7b;margin-bottom:14px}
+.controls{margin:10px 0 18px}
+.controls button{border:1px solid #cdd6df;background:#fff;border-radius:20px;padding:6px 14px;margin-right:6px;cursor:pointer;font-size:.85rem}
+.controls button.active{background:#22333b;color:#fff;border-color:#22333b}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px}
+.card{background:#fff;border:1px solid #e6e9ee;border-radius:10px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.card img{width:100%;border-radius:6px;cursor:zoom-in}
+.noimg{padding:40px;text-align:center;color:#aab;background:#f3f5f7;border-radius:6px}
+.hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ttl{font-weight:700}
+.tag{color:#fff;font-size:.7rem;padding:2px 8px;border-radius:10px}
+.badges{margin-top:8px;font-size:.85rem;color:#33475b} .badges b{color:#12263a}
+.links{margin-top:4px;font-size:.8rem} .links a{color:#2a6f97;text-decoration:none}
+</style></head><body>
+<h1>Diagnostics gallery</h1>
+<div class='sub'>8 recordings &middot; mean exponent 1.12 (range 0.97–1.30) &middot; mean fit r&sup2; 0.992 &middot; median 8% epochs rejected</div>
+<div class='controls'>
+  <button class='active' onclick="filt(this,'all')">All</button>
+  <button onclick="filt(this,'rest')">Rest</button>
+  <button onclick="filt(this,'movie')">Movie</button>
+  <button onclick="filt(this,'check this one')">⚠ Needs a look</button>
+</div>
+<div class='grid' id='grid'><div class='card' style='border-top:5px solid #2a9d8f' data-cond='movie' data-flag='looks clean'><div class='hd'><span class='ttl'>P001 · S1 · movie</span><span class='tag' style='background:#2a9d8f'>looks clean</span></div><a href='per_recording/diagnostic_P001_S1_movie.png' target='_blank'><img loading='lazy' src='per_recording/diagnostic_P001_S1_movie.png'></a><div class='badges'><b>exp 1.00</b> r&sup2; 0.990 8% rej worst: C3</div><div class='links'><a href='per_recording/qc_report_P001_S1_movie.html' target='_blank'>QC report</a> &middot; <a href='per_recording/durationcurve_P001_S1_movie.png' target='_blank'>vs length</a></div></div><div class='card' style='border-top:5px solid #2a9d8f' data-cond='rest' data-flag='looks clean'><div class='hd'><span class='ttl'>P001 · S1 · rest</span><span class='tag' style='background:#2a9d8f'>looks clean</span></div><a href='per_recording/diagnostic_P001_S1_rest.png' target='_blank'><img loading='lazy' src='per_recording/diagnostic_P001_S1_rest.png'></a><div class='badges'><b>exp 0.97</b> r&sup2; 0.991 8% rej worst: P4</div><div class='links'><a href='per_recording/qc_report_P001_S1_rest.html' target='_blank'>QC report</a> &middot; <a href='per_recording/durationcurve_P001_S1_rest.png' target='_blank'>vs length</a></div></div><div class='card' style='border-top:5px solid #2a9d8f' data-cond='movie' data-flag='looks clean'><div class='hd'><span class='ttl'>P001 · S2 · movie</span><span class='tag' style='background:#2a9d8f'>looks clean</span></div><a href='per_recording/diagnostic_P001_S2_movie.png' target='_blank'><img loading='lazy' src='per_recording/diagnostic_P001_S2_movie.png'></a><div class='badges'><b>exp 0.97</b> r&sup2; 0.989 9% rej worst: C3</div><div class='links'><a href='per_recording/qc_report_P001_S2_movie.html' target='_blank'>QC report</a> &middot; <a href='per_recording/durationcurve_P001_S2_movie.png' target='_blank'>vs length</a></div></div><div class='card' style='border-top:5px solid #2a9d8f' data-cond='rest' data-flag='looks clean'><div class='hd'><span class='ttl'>P001 · S2 · rest</span><span class='tag' style='background:#2a9d8f'>looks clean</span></div><a href='per_recording/diagnostic_P001_S2_rest.png' target='_blank'><img loading='lazy' src='per_recording/diagnostic_P001_S2_rest.png'></a><div class='badges'><b>exp 1.00</b> r&sup2; 0.989 8% rej worst: P3</div><div class='links'><a href='per_recording/qc_report_P001_S2_rest.html' target='_blank'>QC report</a> &middot; <a href='per_recording/durationcurve_P001_S2_rest.png' target='_blank'>vs length</a></div></div><div class='card' style='border-top:5px solid #2a9d8f' data-cond='movie' data-flag='looks clean'><div class='hd'><span class='ttl'>P002 · S1 · movie</span><span class='tag' style='background:#2a9d8f'>looks clean</span></div><a href='per_recording/diagnostic_P002_S1_movie.png' target='_blank'><img loading='lazy' src='per_recording/diagnostic_P002_S1_movie.png'></a><div class='badges'><b>exp 1.30</b> r&sup2; 0.993 7% rej worst: C4</div><div class='links'><a href='per_recording/qc_report_P002_S1_movie.html' target='_blank'>QC report</a> &middot; <a href='per_recording/durationcurve_P002_S1_movie.png' target='_blank'>vs length</a></div></div><div class='card' style='border-top:5px solid #2a9d8f' data-cond='rest' data-flag='looks clean'><div class='hd'><span class='ttl'>P002 · S1 · rest</span><span class='tag' style='background:#2a9d8f'>looks clean</span></div><a href='per_recording/diagnostic_P002_S1_rest.png' target='_blank'><img loading='lazy' src='per_recording/diagnostic_P002_S1_rest.png'></a><div class='badges'><b>exp 1.27</b> r&sup2; 0.993 7% rej worst: Cz</div><div class='links'><a href='per_recording/qc_report_P002_S1_rest.html' target='_blank'>QC report</a> &middot; <a href='per_recording/durationcurve_P002_S1_rest.png' target='_blank'>vs length</a></div></div><div class='card' style='border-top:5px solid #2a9d8f' data-cond='movie' data-flag='looks clean'><div class='hd'><span class='ttl'>P002 · S2 · movie</span><span class='tag' style='background:#2a9d8f'>looks clean</span></div><a href='per_recording/diagnostic_P002_S2_movie.png' target='_blank'><img loading='lazy' src='per_recording/diagnostic_P002_S2_movie.png'></a><div class='badges'><b>exp 1.26</b> r&sup2; 0.994 10% rej worst: P4</div><div class='links'><a href='per_recording/qc_report_P002_S2_movie.html' target='_blank'>QC report</a> &middot; <a href='per_recording/durationcurve_P002_S2_movie.png' target='_blank'>vs length</a></div></div><div class='card' style='border-top:5px solid #2a9d8f' data-cond='rest' data-flag='looks clean'><div class='hd'><span class='ttl'>P002 · S2 · rest</span><span class='tag' style='background:#2a9d8f'>looks clean</span></div><a href='per_recording/diagnostic_P002_S2_rest.png' target='_blank'><img loading='lazy' src='per_recording/diagnostic_P002_S2_rest.png'></a><div class='badges'><b>exp 1.22</b> r&sup2; 0.994 12% rej worst: P3</div><div class='links'><a href='per_recording/qc_report_P002_S2_rest.html' target='_blank'>QC report</a> &middot; <a href='per_recording/durationcurve_P002_S2_rest.png' target='_blank'>vs length</a></div></div></div>
+<script>
+function filt(btn, key){
+  document.querySelectorAll('.controls button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.card').forEach(c=>{
+    let show = key==='all' || c.dataset.cond===key || c.dataset.flag===key;
+    c.style.display = show ? '' : 'none';
+  });
+}
+</script></body></html>

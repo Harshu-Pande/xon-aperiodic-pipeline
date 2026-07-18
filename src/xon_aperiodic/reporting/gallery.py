@@ -24,14 +24,18 @@ def _num(x: Any) -> Optional[float]:
         return None
 
 
-def _exists(output_dir: Path, name: str) -> Optional[str]:
-    return name if (output_dir / name).exists() else None
+def _exists(output_dir: Path, subdir: str, name: str) -> Optional[str]:
+    """Return the gallery-relative href (subdir/name) if the file exists, else None."""
+    if (output_dir / subdir / name).exists():
+        return f"{subdir}/{name}" if subdir else name
+    return None
 
 
 def build_gallery(output_dir: str | Path, master_df: pd.DataFrame,
-                  filename: str = "gallery.html") -> str:
-    """Write a gallery.html into output_dir and return its path."""
+                  filename: str = "gallery.html", images_subdir: str = "per_recording") -> str:
+    """Write a gallery.html into output_dir (images live in images_subdir/)."""
     output_dir = Path(output_dir)
+    sub = images_subdir
     df = master_df.copy()
     if "status" in df.columns:
         df = df[df["status"].astype(str) != "error"]
@@ -56,10 +60,10 @@ def build_gallery(output_dir: str | Path, master_df: pd.DataFrame,
     cards: List[str] = []
     for _, row in df.iterrows():
         sid = str(row.get("subject_id", ""))
-        diag = _exists(output_dir, f"diagnostic_{sid}.png")
-        conv = _exists(output_dir, f"durationcurve_{sid}.png")
-        block = _exists(output_dir, f"block_exponents_{sid}.png")
-        qc = _exists(output_dir, f"qc_report_{sid}.html")
+        diag = _exists(output_dir, sub, f"diagnostic_{sid}.png")
+        conv = _exists(output_dir, sub, f"durationcurve_{sid}.png")
+        block = _exists(output_dir, sub, f"block_exponents_{sid}.png")
+        qc = _exists(output_dir, sub, f"qc_report_{sid}.html")
         exp = _num(row.get("AVERAGE_exponent"))
         r2 = _num(row.get("AVERAGE_r_squared"))
         pr = _num(row.get("pct_epochs_rejected"))

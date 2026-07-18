@@ -34,7 +34,8 @@ def _dict_to_html(d: Dict[str, Any]) -> str:
 def _img(path: str, out_dir: Path) -> str:
     if not path:
         return ""
-    return (f"<figure><img src='{html.escape(os.path.basename(path))}' "
+    rel = os.path.relpath(path, out_dir)     # e.g. figures/fig_x.png
+    return (f"<figure><img src='{html.escape(rel)}' "
             "style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>")
 
 
@@ -91,19 +92,23 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
 
     st = S.compute_all(master_df, results, regions, quiet, noisy, sh_target, icc_target)
 
+    # organised sub-folders: figures/ and statistics/ (per_recording/ is written by the pipeline)
+    fig_dir = out_dir / "figures"; fig_dir.mkdir(parents=True, exist_ok=True)
+    stats_dir = out_dir / "statistics"; stats_dir.mkdir(parents=True, exist_ok=True)
+
     # write stat tables
     paths: Dict[str, str] = {}
     for name in ["quality", "reliability", "regional"]:
         df = st[name]
         if isinstance(df, pd.DataFrame) and not df.empty:
-            p = out_dir / f"stats_{name}.csv"
+            p = stats_dir / f"stats_{name}.csv"
             df.to_csv(p, index=False)
             paths[f"stats_{name}"] = str(p)
     # reliability-vs-duration curve CSV
     rel = st.get("duration_reliability", {}) or {}
     rel_curve = rel.get("curve")
     if isinstance(rel_curve, pd.DataFrame) and not rel_curve.empty:
-        p = out_dir / "stats_reliability_by_duration.csv"
+        p = stats_dir / "stats_reliability_by_duration.csv"
         rel_curve.to_csv(p, index=False)
         paths["stats_reliability_by_duration"] = str(p)
 
@@ -113,11 +118,11 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
     scalar.update({f"regional_test.{k}": v for k, v in (st["regional_test"] or {}).items()})
     scalar.update({f"duration_reliability.{k}": v for k, v in rel.items() if k != "curve"})
     if scalar:
-        p = out_dir / "stats_summary.csv"
+        p = stats_dir / "stats_summary.csv"
         pd.DataFrame([scalar]).to_csv(p, index=False)
         paths["stats_summary"] = str(p)
 
-    figs = F.build_all(master_df, results, st["regional"], str(out_dir), quiet, noisy, reliab=rel)
+    figs = F.build_all(master_df, results, st["regional"], str(fig_dir), quiet, noisy, reliab=rel)
     paths.update({f"fig_{k}": v for k, v in figs.items()})
 
     # one-page gallery of every recording's diagnostic figure
@@ -184,8 +189,26 @@ Cerebral Cortex; epoch-increment split-half reliability as in EEG power-spectrum
 work). The full curve is in stats_reliability_by_duration.csv.</p>
 
 <p class='muted'>See <b>gallery.html</b> for a one-page contact sheet of every recording's
-diagnostic figure. Per-recording QC reports (qc_report_&lt;id&gt;.html) and the wide
-master_everything.csv sit alongside this file for drill-down.</p>
+diagnostic figure. Granular per-recording outputs are in <b>per_recording/</b>, figures in
+<b>figures/</b>, statistics in <b>statistics/</b>.</p>
+
+<h2>Methods &amp; references</h2>
+<p style='font-size:.85rem;color:#33475b'>
+Spectral parameterization (aperiodic exponent &amp; offset) via the FOOOF/specparam method:
+<b>Donoghue et&nbsp;al. 2020</b>, <i>Parameterizing neural power spectra into periodic and
+aperiodic components</i>, Nature Neuroscience 23:1655–1665.<br>
+Acquisition &amp; artifact-rejection parameters (0.1&nbsp;Hz high-pass, 1&nbsp;s / 100&nbsp;ms
+epochs, amplitude&nbsp;&gt;100&nbsp;µV or gradient&nbsp;&gt;10&nbsp;µV/ms rejection, ear/A2
+reference) follow the Xon validation work of the <b>Boere &amp; Krigolson</b> lab
+(Boere et&nbsp;al. 2025, Sci&nbsp;Rep; Boere, Copithorne &amp; Krigolson 2025, Exp&nbsp;Brain&nbsp;Res);
+the gradient criterion reproduces Krigolson's published artifact-rejection routine.<br>
+Reliability-vs-recording-length analysis (split-half internal consistency; between-session
+test–retest ICC) follows <b>McKeown et&nbsp;al. 2024</b>, <i>Test–retest reliability of
+spectral parameterization by 1/f characterization using SpecParam</i>, Cerebral&nbsp;Cortex
+34:bhad482, and the epoch-increment reliability approach used in EEG power-spectrum
+reliability studies. EMG contamination of high-frequency EEG: <b>Whitham et&nbsp;al. 2007</b>;
+<b>Muthukumaraswamy 2013</b>. Preprocessing implemented with <b>MNE-Python</b>
+(Gramfort et&nbsp;al. 2013). Full details in docs/METHODS.md.</p>
 </body></html>"""
     report_path = out_dir / "cohort_report.html"
     with open(report_path, "w") as fh:

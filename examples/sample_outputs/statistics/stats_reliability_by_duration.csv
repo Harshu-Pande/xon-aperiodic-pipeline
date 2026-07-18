@@ -1,0 +1,5 @@
+minutes,split_half_reliability,n_split_half,test_retest_icc,n_icc,mean_abs_error_to_full
+0.5,,0,,0,
+1.0,0.9695,8,0.9864,4,0.0345
+1.5,0.989,8,0.9687,4,0.012
+2.0,0.9856,7,,3,0.0012

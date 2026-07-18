@@ -13,6 +13,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# If this folder was downloaded (e.g. a ZIP), macOS may have "quarantined" it, which
+# is what triggers the scary "unidentified developer" warning. Clear that flag on our
+# own folder so it never nags again. (No admin rights needed; ignores failure silently.)
+xattr -dr com.apple.quarantine "$(pwd)" >/dev/null 2>&1 || true
+
 PY="${PYTHON:-python3}"
 if ! command -v "$PY" >/dev/null 2>&1; then
   echo "Python 3 was not found. Install Python 3.9+ from https://www.python.org/downloads/ and re-run." >&2

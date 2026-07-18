@@ -187,6 +187,16 @@ analysis:
   reliability_step_sec: 30.0   # evaluate the estimate every this many seconds of clean data
 
 # -----------------------------------------------------------------------------
+# PERFORMANCE  -  process multiple recordings at once to finish a batch faster.
+# -----------------------------------------------------------------------------
+performance:
+  # "auto" picks a safe number of parallel workers for your computer. Set an integer
+  # (e.g. 4) to force a specific number, or 1 to process one file at a time (slowest,
+  # lowest memory). More workers = faster but more RAM.
+  n_jobs: "auto"
+  max_workers: 6               # never exceed this many parallel workers (memory safety)
+
+# -----------------------------------------------------------------------------
 # COHORT STATISTICS  (run across all files after the batch, for publication)
 # -----------------------------------------------------------------------------
 stats:

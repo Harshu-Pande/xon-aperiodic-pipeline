@@ -135,7 +135,9 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
     # --- pull every setting out of cfg once, for readability ---
     A = cfg.section("artifacts")
     out_dir = str(cfg.output_dir)
-    os.makedirs(out_dir, exist_ok=True)
+    # per-recording (granular) outputs live in a sub-folder so the top level stays clean
+    per_dir = os.path.join(out_dir, "per_recording")
+    os.makedirs(per_dir, exist_ok=True)
     epoch_len = float(cfg.get("epoch", "length_sec"))
     epoch_overlap = float(cfg.get("epoch", "overlap_sec"))
     fooof_range = cfg.get("fooof", "freq_range")
@@ -291,7 +293,7 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
     qc_df = res["qc_df"]
     bad_channels = sorted(set(interpolated_channels) | set(excluded_channels))
 
-    qc_path = os.path.join(out_dir, f"epoch_qc_{subject_id}.csv")
+    qc_path = os.path.join(per_dir, f"epoch_qc_{subject_id}.csv")
     qc_df.to_csv(qc_path, index=False)
 
     settings_cols = dict(
@@ -333,7 +335,7 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
 
     diagnostic_path = diagnostics.save_diagnostic_plot(
         res["freqs"], res["psd_2d"], res["fm_by_channel"], res["ch_names"], full_rows, qc_df,
-        subject_id, out_dir, interpolated_channels=interpolated_channels,
+        subject_id, per_dir, interpolated_channels=interpolated_channels,
         excluded_channels=excluded_channels)
 
     # ---- block analysis ----
@@ -376,19 +378,19 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
             step_sec=float(an.get("reliability_step_sec", 30.0)),
             interpolated_channels=interpolated_channels)
         if not duration_df.empty:
-            dpath = os.path.join(out_dir, f"durationcurve_{subject_id}.csv")
+            dpath = os.path.join(per_dir, f"durationcurve_{subject_id}.csv")
             duration_df.to_csv(dpath, index=False)
             info(f"  Duration curve: {len(duration_df)} points up to "
                  f"{duration_df['clean_minutes'].max():.1f} min")
-            diagnostics.save_duration_plot(duration_df, subject_id, out_dir)
+            diagnostics.save_duration_plot(duration_df, subject_id, per_dir)
 
     results_df = pd.DataFrame(all_rows)
-    results_path = os.path.join(out_dir, f"aperiodic_results_{subject_id}.csv")
+    results_path = os.path.join(per_dir, f"aperiodic_results_{subject_id}.csv")
     results_df.to_csv(results_path, index=False)
     peaks_df = pd.concat(all_peaks, ignore_index=True) if all_peaks else pd.DataFrame()
-    peaks_path = os.path.join(out_dir, f"peak_table_{subject_id}.csv")
+    peaks_path = os.path.join(per_dir, f"peak_table_{subject_id}.csv")
     peaks_df.to_csv(peaks_path, index=False)
-    block_plot_path = diagnostics.save_block_plot(results_df, out_dir, subject_id)
+    block_plot_path = diagnostics.save_block_plot(results_df, per_dir, subject_id)
 
     step("DONE (this file)")
     info(f"  Channels analyzed: {len(analyzed_channels)} ({analyzed_channels})")
@@ -407,7 +409,7 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
 
     # per-file human-readable QC report
     qc_report_path = diagnostics.write_qc_report(
-        subject_id, meta, master_record, res, qc_df, out_dir,
+        subject_id, meta, master_record, res, qc_df, per_dir,
         diagnostic_path=diagnostic_path, block_plot_path=block_plot_path)
 
     output_paths = dict(results=results_path, peaks=peaks_path, epoch_qc=qc_path,

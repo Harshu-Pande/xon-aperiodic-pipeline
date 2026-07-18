@@ -74,7 +74,21 @@ manifest overrides filename parsing.
 
 ## 5. Outputs (in the output folder)
 
-Per recording (`<id>` = e.g. `P004_S2_rest`):
+The output folder is organised so the top level stays clean:
+
+```
+<output>/
+  cohort_report.html          <- the report to read first
+  gallery.html                <- every diagnostic figure on one page
+  master_everything.csv       <- one wide row per recording
+  combined_aperiodic_results.csv
+  figures/                    <- publication figures
+  statistics/                 <- statistics tables
+  per_recording/              <- all per-recording tables, plots, QC reports
+  logs/                       <- run log
+```
+
+Per recording (in `per_recording/`, `<id>` = e.g. `P004_S2_rest`):
 
 | File | What it is |
 |---|---|

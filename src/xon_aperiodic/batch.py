@@ -5,6 +5,7 @@ cohort HTML report with publication figures).
 from __future__ import annotations
 
 import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -52,13 +53,33 @@ def order_master_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[lead + rest]
 
 
+def _process_file(payload):
+    """Top-level worker (must be picklable for parallel processing)."""
+    fpath_str, cfg, meta = payload
+    try:
+        return ("ok", meta, run_pipeline(fpath_str, cfg=cfg, metadata=meta))
+    except Exception as exc:  # noqa: BLE001
+        return ("err", meta, str(exc))
+
+
+def _resolve_n_jobs(cfg: Config, n_files: int) -> int:
+    setting = cfg.get("performance", "n_jobs", "auto")
+    cap = int(cfg.get("performance", "max_workers", 6) or 6)
+    cpu = os.cpu_count() or 2
+    if isinstance(setting, int) or (isinstance(setting, str) and str(setting).isdigit()):
+        n = int(setting)
+    else:
+        n = max(1, cpu - 1)         # "auto": leave one core free
+    return max(1, min(n, cap, n_files))
+
+
 def run_batch(cfg: Optional[Config] = None, input_files: Optional[Iterable[Path]] = None,
               run_stats: bool = True) -> Dict[str, Any]:
     """Run the whole cohort. Returns a dict of output paths and the master dataframe."""
     cfg = cfg or load_config()
     out_dir = Path(cfg.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    setup_logging(out_dir)
+    setup_logging(out_dir / "logs")
 
     if input_files is None:
         input_files = find_xdf_files(cfg.input_dir, pattern=cfg.get("io", "file_glob", "*.xdf"),
@@ -66,28 +87,47 @@ def run_batch(cfg: Optional[Config] = None, input_files: Optional[Iterable[Path]
     files = list(input_files)
     resolver = MetadataResolver(cfg)
 
-    banner(f"BATCH MODE: {len(files)} recording(s)")
+    metas = [resolver.resolve(f) for f in files]
+    payloads = [(str(f), cfg, m) for f, m in zip(files, metas)]
+    n_jobs = _resolve_n_jobs(cfg, len(files))
+    banner(f"BATCH MODE: {len(files)} recording(s), {n_jobs} parallel worker(s)")
+
+    outcomes: List[Any] = [None] * len(files)
+    if n_jobs <= 1:
+        for i, pl in enumerate(payloads):
+            info(f"[{i + 1}/{len(files)}] {metas[i].subject_id} ...")
+            outcomes[i] = _process_file(pl)
+    else:
+        # keep each worker single-threaded so N workers don't oversubscribe the CPU
+        for v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+            os.environ.setdefault(v, "1")
+        done = 0
+        with ProcessPoolExecutor(max_workers=n_jobs) as ex:
+            futs = {ex.submit(_process_file, pl): i for i, pl in enumerate(payloads)}
+            for fut in as_completed(futs):
+                i = futs[fut]
+                outcomes[i] = fut.result()
+                done += 1
+                status, meta, _ = outcomes[i]
+                info(f"  [{done}/{len(files)}] {meta.subject_id}: "
+                     f"{'done' if status == 'ok' else 'ERROR'}")
+
     combined_rows: List[pd.DataFrame] = []
     master_records: List[Dict[str, Any]] = []
     results: List[PipelineResult] = []
-
-    for i, fpath in enumerate(files, start=1):
-        fpath_str = str(fpath)
-        banner(f"FILE {i}/{len(files)}: {fpath_str}")
-        meta = resolver.resolve(fpath)
-        try:
-            result = run_pipeline(fpath_str, cfg=cfg, metadata=meta)
-            combined_rows.append(result.results_df)
-            master_records.append(result.master_record)
-            results.append(result)
-        except Exception as exc:
-            info(f"\nERROR processing {fpath_str}: {exc}")
+    for (status, meta, payload) in outcomes:
+        if status == "ok":
+            combined_rows.append(payload.results_df)
+            master_records.append(payload.master_record)
+            results.append(payload)
+        else:
+            info(f"ERROR processing {meta.path}: {payload}")
             combined_rows.append(pd.DataFrame([{
-                "subject_id": meta.subject_id, "input_file": fpath_str, "error": str(exc)}]))
+                "subject_id": meta.subject_id, "input_file": meta.path, "error": payload}]))
             master_records.append(dict(
-                subject_id=meta.subject_id, input_file=fpath_str, file_stem=Path(fpath_str).stem,
+                subject_id=meta.subject_id, input_file=meta.path, file_stem=Path(meta.path).stem,
                 participant=meta.participant, session=meta.session, condition=meta.condition,
-                status="error", error_message=str(exc)))
+                status="error", error_message=payload))
 
     combined_df = pd.concat(combined_rows, ignore_index=True) if combined_rows else pd.DataFrame()
     combined_path = out_dir / (cfg.get("io", "combined_name", "combined_aperiodic_results.csv") or "combined_aperiodic_results.csv")

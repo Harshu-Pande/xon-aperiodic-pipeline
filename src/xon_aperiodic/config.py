@@ -85,6 +85,10 @@ DEFAULTS: Dict[str, Any] = {
         "reliability_analysis": True,
         "reliability_step_sec": 30.0,
     },
+    "performance": {
+        "n_jobs": "auto",       # "auto" = pick a safe number of parallel workers; or an integer
+        "max_workers": 6,       # never use more than this many parallel workers (RAM safety)
+    },
     "stats": {
         "enabled": True,
         "regions": {"frontal": ["F3", "F4"], "central": ["C3", "C4", "Cz"], "parietal": ["P3", "P4"]},

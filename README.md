@@ -34,21 +34,22 @@ answers the study's questions:
 
 ## Quick start
 
-### 👉 Never used a terminal? Start here (no coding)
+### Easiest setup — no coding, no admin password (recommended)
 
-1. Put all your `.xdf` recordings in one folder.
-2. **Mac:** double-click **`Start Here (Mac).command`**.  **Windows:** double-click
-   **`Start Here (Windows).bat`**.
-3. Wait ~1–2 minutes the first time — a page opens in your web browser.
-4. In that page, point the **Folder of recordings** box at your folder and press
-   **▶ Run pipeline**. Results and a report appear on the page and save to a **"Xon
-   results"** folder on your Desktop.
+Open **Terminal** (⌘-Space → type `Terminal`), paste this one line, and press Return:
 
-That's the whole thing. The step-by-step version, with screenshots-in-words and what to do
-if something looks off, is in **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)**.
+```bash
+cd ~/Desktop && curl -L https://github.com/Harshu-Pande/xon-aperiodic-pipeline/archive/refs/heads/main.zip -o xon.zip && unzip -oq xon.zip && cd xon-aperiodic-pipeline-main && chmod +x run.sh && ./run.sh gui
+```
 
-> First time on a Mac, if you see *"unidentified developer"*: right-click
-> `Start Here (Mac).command` → **Open** → **Open**. Only needed once.
+It downloads the program, sets it up, and opens the app in your browser. After that, use
+the app: click **📁 Browse**, pick your recordings folder, press **▶ Run**. On later days,
+double-click **`Start Here (Mac).command`** in the folder — no security prompt appears
+because this method never quarantines the files.
+
+Prefer to download-and-double-click instead, or on Windows? See the step-by-step guide,
+which also covers the one-time macOS security prompt (and how to clear it without an admin
+password): **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)**.
 
 ---
 

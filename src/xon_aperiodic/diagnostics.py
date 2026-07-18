@@ -263,6 +263,7 @@ th{{background:#f0f4f8;border:1px solid #e6e6e6;padding:5px 8px;text-align:left;
 <h2>Per-channel detail</h2>
 <table><tr><th>channel</th><th>exponent</th><th>r^2</th><th>log-var</th><th>reject hits</th><th>% of rejections</th><th>interp?</th><th>excluded?</th></tr>{ch_rows}</table>
 <p class='small'>Interpolated channels are reported but excluded from the AVERAGE exponent (a reconstructed channel is a blend of its neighbours, not an independent measurement).</p>
+<p class='small'>Methods: aperiodic fit via FOOOF/specparam (Donoghue et al. 2020, Nat Neurosci); acquisition/rejection parameters per the Boere &amp; Krigolson Xon protocol; preprocessing in MNE-Python. See docs/METHODS.md.</p>
 </body></html>"""
     out_path = os.path.join(output_dir, f"qc_report_{subject_id}.html")
     with open(out_path, "w") as fh:
