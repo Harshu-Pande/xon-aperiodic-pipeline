@@ -135,8 +135,11 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
     # scalar summaries as a combined csv
     scalar = {}
     scalar.update({f"contrast.{k}": v for k, v in (st["contrast"] or {}).items()})
-    scalar.update({f"regional_test.{k}": v for k, v in (st["regional_test"] or {}).items()})
+    scalar.update({f"regional_test.{k}": v for k, v in (st["regional_test"] or {}).items()
+                   if k not in ("posthoc", "region_means", "regions")})
     scalar.update({f"duration_reliability.{k}": v for k, v in rel.items() if k != "curve"})
+    scalar.update({f"stabilization.{k}": v for k, v in (st.get("stabilization") or {}).items()})
+    scalar.update({f"inclusion.{k}": v for k, v in (st.get("inclusion") or {}).items()})
     if scalar:
         p = stats_dir / "stats_summary.csv"
         pd.DataFrame([scalar]).to_csv(p, index=False)
@@ -195,15 +198,19 @@ agreement) show the agreement directly.</p>
 {_img(figs.get('bland_altman',''), out_dir)}
 
 <h2>3. Quiet vs noisy condition ({html.escape(str(quiet))} vs {html.escape(str(noisy))})</h2>
-<p><b>The robustness question is best answered by reliability and data quality, not by the
-exponent value.</b> Rest and movie are different brain states, so we would not necessarily
-expect the exponent to be identical, and the value contrast below is underpowered. The
-informative comparison: test-retest reliability and clean-data yield are markedly better in
-the quiet (rest) condition than the noisy (movie) one — see section 2 and the quality table.
-The paired value contrast is shown for completeness.</p>
+<p>Two distinct questions, both of interest here:</p>
+<p><b>(a) Does the exponent itself differ between the two states?</b> This is a real question
+— the aperiodic exponent indexes excitation/inhibition balance, which can genuinely shift
+between quiet rest and watching a movie, so a difference would be scientifically meaningful.
+Paired within-participant contrast, with a 95% CI on the difference and Cohen's d<sub>z</sub>.
+At this sample size it is underpowered, so <b>read the confidence interval</b> and treat a
+non-significant result as "inconclusive," not "no difference."</p>
 {_dict_to_html(st['contrast'])}
 {_img(figs.get('condition_paired',''), out_dir)}
 {_img(figs.get('exponent_by_condition',''), out_dir)}
+<p><b>(b) Is the measurement robust to the noisy condition?</b> Separately from the value,
+test-retest reliability and clean-data yield are better in rest than movie (section 2) — the
+headset still works during the movie but with lower reliability and more rejected data.</p>
 
 <h2>4. Scalp region</h2>
 <p>Computed at the <b>participant level</b> (one value per person, averaged over their
@@ -230,6 +237,13 @@ noise, not a real loss of reliability.</p>
 {_dict_to_html({k: v for k, v in (st['duration_reliability'] or {}).items() if k != 'curve'})}
 {_img(figs.get('reliability_by_duration',''), out_dir)}
 {_img(figs.get('duration_overlay',''), out_dir)}
+<h3 style='font-size:1.05rem'>Per-recording: when does each person's estimate settle?</h3>
+<p>The cohort curve above is the group answer. Each <i>individual</i> recording also has its
+own answer: its estimate is noisy at first and settles as clean data accumulates. For each
+recording we mark the length at which its two independent halves (odd vs even epochs) agree
+within tolerance — a non-circular, per-person "how much is enough" (shown on each recording's
+duration-curve plot in per_recording/, and in the <code>minutes_to_stabilize</code> column).</p>
+{_dict_to_html(st.get('stabilization', {}))}
 <p class='muted'>Method grounded in the aperiodic-reliability literature (McKeown et al. 2024,
 Cerebral Cortex; epoch-increment split-half reliability as in EEG power-spectrum reliability
 work). The full curve is in stats_reliability_by_duration.csv.</p>

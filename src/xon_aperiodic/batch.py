@@ -45,6 +45,7 @@ MASTER_LEAD_COLS = [
     "epochs_dropped_gradient", "epochs_flagged_variance", "epochs_flagged_muscle",
     "epochs_final_clean", "pct_epochs_rejected", "pct_epochs_kept",
     "AVERAGE_exponent", "AVERAGE_exponent_sd", "AVERAGE_r_squared", "AVERAGE_n_channels_averaged",
+    "minutes_to_stabilize",
     "n_channels_analyzed", "n_interpolated", "n_excluded", "n_exponent_flagged",
     "bad_channels", "interpolated_channels", "excluded_channels",
     "exponent_flagged_channels", "high_offender_flagged_channels",

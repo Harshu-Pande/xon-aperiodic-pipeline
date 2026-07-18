@@ -84,6 +84,7 @@ DEFAULTS: Dict[str, Any] = {
         "block_length_min": 5.0,
         "reliability_analysis": True,
         "reliability_step_sec": 30.0,
+        "stabilization_tolerance": 0.1,   # per-recording: odd/even halves must agree within this
     },
     "performance": {
         "n_jobs": "auto",       # "auto" = pick a safe number of parallel workers; or an integer

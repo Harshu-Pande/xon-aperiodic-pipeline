@@ -193,6 +193,11 @@ def condition_contrast(master: pd.DataFrame, quiet: str = "rest", noisy: str = "
                mean_diff_noisy_minus_quiet=round(float(np.mean(diff)), 4))
     sd = np.std(diff, ddof=1) if len(diff) > 1 else 0.0
     out["cohen_dz"] = round(float(np.mean(diff) / sd), 4) if sd > 0 else ""
+    if _sps is not None and len(diff) > 1:
+        sem = sd / np.sqrt(len(diff))
+        tcrit = float(_sps.t.ppf(0.975, len(diff) - 1))
+        out["diff_95ci_low"] = round(float(np.mean(diff) - tcrit * sem), 4)
+        out["diff_95ci_high"] = round(float(np.mean(diff) + tcrit * sem), 4)
     if _sps is not None and len(common) >= 3:
         try:
             t, p = _sps.ttest_rel(na, qa)
@@ -424,6 +429,22 @@ def reliability_by_duration(results: List[Any], split_half_target: float = 0.90,
     )
 
 
+def stabilization_summary(master: pd.DataFrame) -> Dict[str, Any]:
+    """Cohort view of the per-recording 'minutes for this person's estimate to stabilize'
+    (odd/even halves agree)."""
+    d = _ok(master)
+    if d.empty or "minutes_to_stabilize" not in d.columns:
+        return dict(note="per-recording stabilization not computed")
+    vals = _num(d["minutes_to_stabilize"]).dropna().values
+    n_tot = int(len(d))
+    out = dict(n_recordings=n_tot, n_stabilized=int(len(vals)),
+               pct_stabilized=round(100.0 * len(vals) / n_tot, 1) if n_tot else 0.0)
+    if len(vals):
+        desc = _describe(vals)
+        out.update({f"minutes_{k}": v for k, v in desc.items() if k in ("median", "iqr", "min", "max")})
+    return out
+
+
 def _safe_float(x: Any) -> Optional[float]:
     try:
         if x is None or x == "":
@@ -457,4 +478,5 @@ def compute_all(master: pd.DataFrame, results: List[Any], regions: Dict[str, Lis
         regional_test=regional_test(master, regions),
         regional_pp=_regional_by_participant(master, regions),
         duration_reliability=reliability_by_duration(results, split_half_target, icc_target, min_n=min_n),
+        stabilization=stabilization_summary(master),
     )

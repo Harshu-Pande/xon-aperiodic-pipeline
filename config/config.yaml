@@ -186,6 +186,9 @@ analysis:
   # recording length - the rigorous version of "how few minutes are enough?"
   reliability_analysis: true
   reliability_step_sec: 30.0   # evaluate the estimate every this many seconds of clean data
+  # Per-recording "how many minutes are enough for THIS person": the point where the two
+  # independent halves (odd vs even epochs) agree within this tolerance and stay agreed.
+  stabilization_tolerance: 0.1
 
 # -----------------------------------------------------------------------------
 # PERFORMANCE  -  process multiple recordings at once to finish a batch faster.

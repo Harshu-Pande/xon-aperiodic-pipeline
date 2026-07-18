@@ -30,16 +30,24 @@ P002 barely moves either (rest 0.90→0.87, movie 0.58→0.58), so the movie pro
 **Added:** bootstrap CIs and Bland–Altman agreement plots (bias + 95% limits of agreement),
 which are the standard way to show test–retest agreement.
 
-## 3. Rest vs movie — we were comparing the wrong thing
+## 3. Rest vs movie — two questions, both worth reporting
 
-The report contrasted the **exponent value** between rest and movie (mean diff −0.03,
-p = 0.44). That is the wrong headline for two reasons: rest and movie are different brain
-states, so equal exponents isn't obviously "good," and n = 19 pairs is underpowered, so a
-null is uninformative. **The meaningful robustness comparison is reliability and data
-quality across conditions** — and there the story is clear: rest is more reliable (ICC 0.90
-vs 0.58) and retains more clean data (77% vs 69% of epochs; median rejection lower). The
-report now frames condition robustness around reliability/quality and keeps the value
-contrast only "for completeness."
+There are two distinct comparisons here and both matter:
+
+**(a) Does the exponent value differ between states?** This is a real scientific question —
+the exponent indexes E/I balance, which can shift between rest and watching a movie. On the
+real data: mean diff = −0.026, **95% CI [−0.094, +0.043]**, Cohen's d_z = −0.18, p = 0.44.
+The honest reading is not "no difference" but "**no evidence of a difference, and only
+powered to detect a moderate-to-large one**" — the CI rules out a large shift but is
+compatible with a small one either way. Reported with a CI + effect size (added), not just a
+p-value.
+
+**(b) Is the measurement robust to the noisy condition?** Separately, reliability and yield
+are better in rest (ICC 0.90 vs 0.58; ~77% vs 69% epochs retained). So the headset works in
+both, but the noisy condition is measured less reliably.
+
+Both are now in the report as distinct points — the value contrast is a substantive result,
+not a footnote.
 
 ## 4. Regional analysis — pseudoreplication fixed, and the real result is smaller
 
@@ -97,5 +105,9 @@ to excluding the worst offender, which is reassuring.
 ## What changed in the code as a result
 
 Participant-level regional test + Holm post-hoc + p-values on the figure; bootstrap ICC CIs;
-Bland–Altman plots; reframing of accuracy→reliability and of the condition comparison;
-an optional minimum-clean-duration inclusion rule; and a Limitations section in the report.
+Bland–Altman plots; the rest-vs-movie value contrast reported with a 95% CI + effect size (as
+a substantive result); a **per-recording stabilization** metric (`minutes_to_stabilize`) — the
+length at which a recording's two independent halves agree, i.e. how much data is enough for
+that individual — annotated on each recording's duration-curve plot and summarised for the
+cohort; reframing of accuracy→reliability; an optional minimum-clean-duration inclusion rule;
+and a Limitations section in the report.

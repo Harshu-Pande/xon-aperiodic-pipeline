@@ -273,3 +273,25 @@ def compute_duration_curve(epochs: mne.Epochs, epoch_length_sec: float,
                          exponent_all=round(exp_all, 6), exponent_odd=round(exp_odd, 6),
                          exponent_even=round(exp_even, 6), r2_all=round(r2_all, 6)))
     return pd.DataFrame(rows)
+
+
+def duration_stabilization(dur_df: pd.DataFrame, tolerance: float = 0.1) -> Optional[float]:
+    """Per-recording 'how many minutes are enough for THIS person'.
+
+    Uses the agreement between two INDEPENDENT halves (odd vs even epochs) at each cumulative
+    duration: the first length at which |odd - even| <= tolerance AND stays within tolerance
+    for every longer length. Because odd and even are independent, this is a genuine precision
+    signal, not a circular comparison to the recording's own endpoint. Returns minutes or None.
+    """
+    if dur_df is None or dur_df.empty or "exponent_odd" not in dur_df.columns:
+        return None
+    df = dur_df.dropna(subset=["exponent_odd", "exponent_even"]).sort_values("clean_minutes")
+    if len(df) < 2:
+        return None
+    gap = (df["exponent_odd"] - df["exponent_even"]).abs().values
+    minutes = df["clean_minutes"].values
+    within = gap <= float(tolerance)
+    for i in range(len(within)):
+        if within[i:].all():
+            return round(float(minutes[i]), 3)
+    return None

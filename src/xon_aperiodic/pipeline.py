@@ -30,7 +30,7 @@ from .preprocess import (
 )
 from .epoching import make_awake_epochs
 from .artifacts import reject_artifacts
-from .spectral import fit_segment, compute_duration_curve
+from .spectral import fit_segment, compute_duration_curve, duration_stabilization
 from . import diagnostics
 
 
@@ -371,6 +371,7 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
 
     # ---- duration curve (raw material for cohort reliability-vs-duration) ----
     duration_df = pd.DataFrame()
+    stabilize_min = None
     if an.get("reliability_analysis", True):
         step("STEP 8: Duration curve (exponent vs clean minutes, all/odd/even)")
         duration_df = compute_duration_curve(
@@ -380,9 +381,12 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
         if not duration_df.empty:
             dpath = os.path.join(per_dir, f"durationcurve_{subject_id}.csv")
             duration_df.to_csv(dpath, index=False)
+            stabilize_min = duration_stabilization(
+                duration_df, tolerance=float(an.get("stabilization_tolerance", 0.1)))
             info(f"  Duration curve: {len(duration_df)} points up to "
-                 f"{duration_df['clean_minutes'].max():.1f} min")
-            diagnostics.save_duration_plot(duration_df, subject_id, per_dir)
+                 f"{duration_df['clean_minutes'].max():.1f} min; "
+                 f"stabilizes (odd/even agree) by: {stabilize_min} min")
+            diagnostics.save_duration_plot(duration_df, subject_id, per_dir, stabilize_min=stabilize_min)
 
     results_df = pd.DataFrame(all_rows)
     results_path = os.path.join(per_dir, f"aperiodic_results_{subject_id}.csv")
@@ -406,6 +410,7 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
     master_record = _build_master_record(
         meta, input_xdf, settings_cols, res, full_rows, raw_after_ica,
         interpolated_channels, excluded_channels, exponent_flagged)
+    master_record["minutes_to_stabilize"] = stabilize_min if stabilize_min is not None else ""
 
     # per-file human-readable QC report
     qc_report_path = diagnostics.write_qc_report(

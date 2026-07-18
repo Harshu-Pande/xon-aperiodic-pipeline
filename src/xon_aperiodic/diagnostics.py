@@ -125,9 +125,10 @@ def save_block_plot(results_df: pd.DataFrame, output_dir: str, subject_id: str) 
     return out_path
 
 
-def save_duration_plot(dur_df: pd.DataFrame, subject_id: str, output_dir: str) -> Optional[str]:
+def save_duration_plot(dur_df: pd.DataFrame, subject_id: str, output_dir: str,
+                       stabilize_min: Optional[float] = None) -> Optional[str]:
     """Per-recording: exponent estimate as clean data accumulates, with the odd/even
-    split that the cohort reliability analysis is built on."""
+    split and the point where the two independent halves agree (this person's 'enough')."""
     if dur_df is None or dur_df.empty:
         return None
     fig, ax = plt.subplots(figsize=(9, 5))
@@ -141,6 +142,9 @@ def save_duration_plot(dur_df: pd.DataFrame, subject_id: str, output_dir: str) -
     full = float(dur_df["exponent_all"].dropna().iloc[-1]) if dur_df["exponent_all"].notna().any() else None
     if full is not None:
         ax.axhline(full, linestyle=":", color="gray", label=f"full-length = {full:.3f}")
+    if stabilize_min is not None:
+        ax.axvline(float(stabilize_min), color="green", linestyle="-", alpha=0.5, linewidth=2,
+                   label=f"stabilizes by {float(stabilize_min):.1f} min")
     ax.set_xlabel("Clean data used (minutes)")
     ax.set_ylabel("Aperiodic exponent")
     ax.set_title(f"Exponent vs recording length | {subject_id}")
