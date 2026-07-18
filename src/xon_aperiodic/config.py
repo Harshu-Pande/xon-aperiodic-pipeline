@@ -96,6 +96,8 @@ DEFAULTS: Dict[str, Any] = {
         "noisy_condition": "movie",
         "reliability_split_half_target": 0.90,
         "reliability_icc_target": 0.75,
+        "reliability_min_n": 8,     # only trust a duration where >= this many recordings contribute
+        "min_clean_minutes": 0.0,   # exclude recordings with less clean data than this from stats (0 = keep all)
     },
 }
 

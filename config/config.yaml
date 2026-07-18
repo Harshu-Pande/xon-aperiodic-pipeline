@@ -214,3 +214,10 @@ stats:
   #   split_half >= 0.90 (internal consistency), test-retest ICC >= 0.75 (good).
   reliability_split_half_target: 0.90
   reliability_icc_target: 0.75
+  # Only trust (and plot) a recording length where at least this many recordings contribute.
+  # Beyond it the sample collapses and the reliability estimate becomes noise.
+  reliability_min_n: 8
+  # Exclude recordings with less than this many minutes of CLEAN data from the cohort
+  # statistics (0 = keep all). A few heavily-rejected sessions can be low-confidence;
+  # setting e.g. 5 restricts stats to sessions with adequate data. Recommended to pre-register.
+  min_clean_minutes: 0.0

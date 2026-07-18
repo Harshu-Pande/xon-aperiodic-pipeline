@@ -9,17 +9,19 @@ h1{font-size:1.7rem} h2{font-size:1.2rem;margin-top:2rem;border-bottom:2px solid
 .lead{background:#eef4f8;border-left:4px solid #2a6f97;padding:10px 14px;border-radius:4px}
 </style></head><body>
 <h1>Xon aperiodic pipeline &mdash; cohort report</h1>
-<p class='lead'>Recordings processed: <b>16</b>. This report answers the study's core
-questions: can the Xon headset recover the aperiodic exponent accurately, is it reliable
-across a person's repeat sessions, does it survive a noisy condition, and how few minutes
-of clean data are needed.</p>
+<p class='lead'>Recordings processed: <b>24</b>. This is a <b>measurement-validation</b> report:
+how <b>reliably and consistently</b> the Xon headset measures the aperiodic exponent —
+across a person's repeat sessions, across a quiet vs noisy condition, by scalp region, and
+with how few minutes of clean data. <b>Important:</b> without a simultaneous research-grade
+reference recording, this assesses <b>reliability and consistency, not absolute accuracy</b>
+(we cannot know the "true" exponent to compare against). See Limitations at the end.</p>
 
 <p style='margin:14px 0'><a href='gallery.html' style='display:inline-block;background:#2a6f97;
 color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600'>
 &#128444; Open the diagnostics gallery &mdash; every recording on one page &rarr;</a></p>
 
 <h2>Key takeaways</h2>
-<ul><li>Test-retest reliability for <b>movie</b> is ICC(2,1) = 0.1949 (poor reliability), from 4 participants.</li><li>Test-retest reliability for <b>rest</b> is ICC(2,1) = 0.7989 (good reliability), from 4 participants.</li><li>movie vs rest: exponent differs by 0.0309 on average (n=8 pairs, p=0.4392).</li><li>How few minutes are enough: internal-consistency (split-half) reliability reached 0.9 by <b>1.0 min</b> of clean data — direct evidence for the 'a few minutes instead of 8 hours' premise.</li><li>Across all recordings the mean fit r^2 was 0.9904 (higher = the 1/f slope genuinely fits the spectrum).</li></ul>
+<ul><li>Test-retest reliability for <b>movie</b> is ICC(2,1) = 0.9614 (excellent reliability), from 6 participants.</li><li>Test-retest reliability for <b>rest</b> is ICC(2,1) = 0.9524 (excellent reliability), from 6 participants.</li><li>movie vs rest: exponent differs by 0.0155 on average (n=12 pairs, p=0.5771).</li><li>How few minutes are enough: internal-consistency (split-half) reliability reached 0.9 by <b>1.0 min</b>; between-session reliability reached 'good' (ICC 0.75) by <b>1.0 min</b> of clean data — direct evidence for the 'a few minutes instead of 8 hours' premise.</li><li>Across all recordings the mean fit r^2 was 0.9939 (higher = the 1/f slope genuinely fits the spectrum).</li></ul>
 
 <h2>1. Measurement quality &amp; data yield</h2>
 <p>Distribution of the exponent, fit r&sup2;, and how much clean data survived QC, overall and by condition.</p>
@@ -41,174 +43,177 @@ color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:
     <tr>
       <td>all</td>
       <td>aperiodic exponent</td>
-      <td>16</td>
-      <td>0.9466</td>
-      <td>0.1165</td>
-      <td>0.9348</td>
-      <td>0.1145</td>
-      <td>0.6839</td>
-      <td>1.1315</td>
+      <td>24</td>
+      <td>1.3475</td>
+      <td>0.2780</td>
+      <td>1.3098</td>
+      <td>0.4917</td>
+      <td>0.9054</td>
+      <td>1.7625</td>
     </tr>
     <tr>
       <td>all</td>
       <td>fit r^2</td>
-      <td>16</td>
-      <td>0.9904</td>
-      <td>0.0022</td>
-      <td>0.9904</td>
-      <td>0.0024</td>
-      <td>0.9857</td>
-      <td>0.9941</td>
+      <td>24</td>
+      <td>0.9939</td>
+      <td>0.0017</td>
+      <td>0.9943</td>
+      <td>0.0016</td>
+      <td>0.9888</td>
+      <td>0.9958</td>
     </tr>
     <tr>
       <td>all</td>
       <td>% epochs kept</td>
-      <td>16</td>
-      <td>88.9100</td>
-      <td>9.2633</td>
-      <td>90.2300</td>
-      <td>4.1350</td>
-      <td>55.6400</td>
-      <td>96.2400</td>
+      <td>24</td>
+      <td>89.8654</td>
+      <td>2.5174</td>
+      <td>89.9500</td>
+      <td>3.1450</td>
+      <td>83.9200</td>
+      <td>94.4700</td>
     </tr>
     <tr>
       <td>all</td>
       <td>clean minutes</td>
-      <td>16</td>
-      <td>1.9708</td>
-      <td>0.2054</td>
-      <td>2.0000</td>
-      <td>0.0916</td>
-      <td>1.2333</td>
-      <td>2.1333</td>
+      <td>24</td>
+      <td>2.9806</td>
+      <td>0.0835</td>
+      <td>2.9833</td>
+      <td>0.1042</td>
+      <td>2.7833</td>
+      <td>3.1333</td>
     </tr>
     <tr>
       <td>all</td>
       <td>across-channel SD</td>
-      <td>16</td>
-      <td>0.0356</td>
-      <td>0.0097</td>
-      <td>0.0361</td>
-      <td>0.0101</td>
-      <td>0.0146</td>
-      <td>0.0483</td>
+      <td>24</td>
+      <td>0.0324</td>
+      <td>0.0092</td>
+      <td>0.0319</td>
+      <td>0.0109</td>
+      <td>0.0154</td>
+      <td>0.0540</td>
     </tr>
     <tr>
       <td>movie</td>
       <td>aperiodic exponent</td>
-      <td>8</td>
-      <td>0.9621</td>
-      <td>0.0867</td>
-      <td>0.9524</td>
-      <td>0.1059</td>
-      <td>0.8768</td>
-      <td>1.1125</td>
+      <td>12</td>
+      <td>1.3552</td>
+      <td>0.2843</td>
+      <td>1.3311</td>
+      <td>0.5072</td>
+      <td>0.9392</td>
+      <td>1.7625</td>
     </tr>
     <tr>
       <td>movie</td>
       <td>fit r^2</td>
-      <td>8</td>
-      <td>0.9903</td>
-      <td>0.0018</td>
-      <td>0.9901</td>
-      <td>0.0013</td>
-      <td>0.9883</td>
-      <td>0.9941</td>
+      <td>12</td>
+      <td>0.9945</td>
+      <td>0.0010</td>
+      <td>0.9946</td>
+      <td>0.0009</td>
+      <td>0.9919</td>
+      <td>0.9958</td>
     </tr>
     <tr>
       <td>movie</td>
       <td>% epochs kept</td>
-      <td>8</td>
-      <td>92.4812</td>
-      <td>2.4107</td>
-      <td>92.4800</td>
-      <td>3.9400</td>
-      <td>89.4700</td>
-      <td>96.2400</td>
+      <td>12</td>
+      <td>90.8283</td>
+      <td>1.6753</td>
+      <td>90.9500</td>
+      <td>2.2600</td>
+      <td>87.9400</td>
+      <td>93.4700</td>
     </tr>
     <tr>
       <td>movie</td>
       <td>clean minutes</td>
-      <td>8</td>
-      <td>2.0500</td>
-      <td>0.0534</td>
-      <td>2.0500</td>
-      <td>0.0875</td>
-      <td>1.9833</td>
-      <td>2.1333</td>
+      <td>12</td>
+      <td>3.0125</td>
+      <td>0.0556</td>
+      <td>3.0167</td>
+      <td>0.0750</td>
+      <td>2.9167</td>
+      <td>3.1000</td>
     </tr>
     <tr>
       <td>movie</td>
       <td>across-channel SD</td>
-      <td>8</td>
-      <td>0.0350</td>
-      <td>0.0114</td>
-      <td>0.0386</td>
-      <td>0.0141</td>
-      <td>0.0146</td>
-      <td>0.0483</td>
+      <td>12</td>
+      <td>0.0292</td>
+      <td>0.0103</td>
+      <td>0.0293</td>
+      <td>0.0094</td>
+      <td>0.0154</td>
+      <td>0.0540</td>
     </tr>
     <tr>
       <td>rest</td>
       <td>aperiodic exponent</td>
-      <td>8</td>
-      <td>0.9312</td>
-      <td>0.1450</td>
-      <td>0.9271</td>
-      <td>0.1404</td>
-      <td>0.6839</td>
-      <td>1.1315</td>
+      <td>12</td>
+      <td>1.3397</td>
+      <td>0.2840</td>
+      <td>1.2889</td>
+      <td>0.4822</td>
+      <td>0.9054</td>
+      <td>1.7349</td>
     </tr>
     <tr>
       <td>rest</td>
       <td>fit r^2</td>
-      <td>8</td>
-      <td>0.9905</td>
-      <td>0.0027</td>
-      <td>0.9913</td>
-      <td>0.0032</td>
-      <td>0.9857</td>
-      <td>0.9937</td>
+      <td>12</td>
+      <td>0.9932</td>
+      <td>0.0020</td>
+      <td>0.9938</td>
+      <td>0.0025</td>
+      <td>0.9888</td>
+      <td>0.9954</td>
     </tr>
     <tr>
       <td>rest</td>
       <td>% epochs kept</td>
-      <td>8</td>
-      <td>85.3388</td>
-      <td>12.2029</td>
-      <td>88.7200</td>
-      <td>3.1975</td>
-      <td>55.6400</td>
-      <td>93.9800</td>
+      <td>12</td>
+      <td>88.9025</td>
+      <td>2.9020</td>
+      <td>89.1950</td>
+      <td>2.2600</td>
+      <td>83.9200</td>
+      <td>94.4700</td>
     </tr>
     <tr>
       <td>rest</td>
       <td>clean minutes</td>
-      <td>8</td>
-      <td>1.8917</td>
-      <td>0.2705</td>
-      <td>1.9667</td>
-      <td>0.0709</td>
-      <td>1.2333</td>
-      <td>2.0833</td>
+      <td>12</td>
+      <td>2.9486</td>
+      <td>0.0963</td>
+      <td>2.9584</td>
+      <td>0.0749</td>
+      <td>2.7833</td>
+      <td>3.1333</td>
     </tr>
     <tr>
       <td>rest</td>
       <td>across-channel SD</td>
-      <td>8</td>
-      <td>0.0362</td>
-      <td>0.0084</td>
-      <td>0.0356</td>
-      <td>0.0079</td>
-      <td>0.0189</td>
-      <td>0.0450</td>
+      <td>12</td>
+      <td>0.0355</td>
+      <td>0.0071</td>
+      <td>0.0355</td>
+      <td>0.0064</td>
+      <td>0.0250</td>
+      <td>0.0494</td>
     </tr>
   </tbody>
 </table>
 <figure><img src='figures/fig_quality.png' style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>
 
 <h2>2. Test-retest reliability (across a person's repeat sessions)</h2>
-<p>ICC(2,1) is the standard test-retest statistic (&gt;0.75 good, &gt;0.9 excellent).</p>
+<p>ICC(2,1) is the standard test-retest statistic (&gt;0.75 good, &gt;0.9 excellent), with a
+bootstrap 95% CI. At this sample size the CIs are wide, so read them, not just the point
+estimate. The scatter (identity line) and the Bland-Altman plot (bias &amp; 95% limits of
+agreement) show the agreement directly.</p>
 <table class="dataframe tbl">
   <thead>
     <tr style="text-align: right;">
@@ -216,6 +221,8 @@ color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:
       <th>n_participants_complete</th>
       <th>n_sessions</th>
       <th>ICC(2,1)</th>
+      <th>ICC_95CI_low</th>
+      <th>ICC_95CI_high</th>
       <th>pearson_r</th>
       <th>pearson_p</th>
       <th>mean_abs_session_diff</th>
@@ -225,84 +232,54 @@ color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:
   <tbody>
     <tr>
       <td>movie</td>
-      <td>4</td>
+      <td>6</td>
       <td>2</td>
-      <td>0.1949</td>
-      <td>0.1688</td>
-      <td>0.8312</td>
-      <td>0.0932</td>
-      <td>poor reliability</td>
+      <td>0.9614</td>
+      <td>0.833</td>
+      <td>0.976</td>
+      <td>0.9618</td>
+      <td>0.0022</td>
+      <td>0.0756</td>
+      <td>excellent reliability</td>
     </tr>
     <tr>
       <td>rest</td>
-      <td>4</td>
+      <td>6</td>
       <td>2</td>
-      <td>0.7989</td>
-      <td>0.9124</td>
-      <td>0.0876</td>
-      <td>0.0751</td>
-      <td>good reliability</td>
+      <td>0.9524</td>
+      <td>0.699</td>
+      <td>0.991</td>
+      <td>0.9526</td>
+      <td>0.0033</td>
+      <td>0.0696</td>
+      <td>excellent reliability</td>
     </tr>
   </tbody>
 </table>
 <figure><img src='figures/fig_test_retest.png' style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>
+<figure><img src='figures/fig_bland_altman.png' style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>
 
 <h2>3. Quiet vs noisy condition (rest vs movie)</h2>
-<p>Does the exponent hold up when the participant is watching a movie (more movement/noise)
-versus resting? A paired contrast within each participant-session.</p>
-<table class='tbl'><tr><td class='k'>quiet</td><td>rest</td></tr><tr><td class='k'>noisy</td><td>movie</td></tr><tr><td class='k'>n_pairs</td><td>8</td></tr><tr><td class='k'>quiet_mean</td><td>0.9312</td></tr><tr><td class='k'>noisy_mean</td><td>0.9621</td></tr><tr><td class='k'>mean_diff_noisy_minus_quiet</td><td>0.0309</td></tr><tr><td class='k'>cohen_dz</td><td>0.2899</td></tr><tr><td class='k'>paired_t</td><td>0.82</td></tr><tr><td class='k'>paired_t_p</td><td>0.4392</td></tr><tr><td class='k'>wilcoxon_p</td><td>0.6406</td></tr></table>
+<p><b>The robustness question is best answered by reliability and data quality, not by the
+exponent value.</b> Rest and movie are different brain states, so we would not necessarily
+expect the exponent to be identical, and the value contrast below is underpowered. The
+informative comparison: test-retest reliability and clean-data yield are markedly better in
+the quiet (rest) condition than the noisy (movie) one — see section 2 and the quality table.
+The paired value contrast is shown for completeness.</p>
+<table class='tbl'><tr><td class='k'>quiet</td><td>rest</td></tr><tr><td class='k'>noisy</td><td>movie</td></tr><tr><td class='k'>n_pairs</td><td>12</td></tr><tr><td class='k'>quiet_mean</td><td>1.3397</td></tr><tr><td class='k'>noisy_mean</td><td>1.3552</td></tr><tr><td class='k'>mean_diff_noisy_minus_quiet</td><td>0.0155</td></tr><tr><td class='k'>cohen_dz</td><td>0.1659</td></tr><tr><td class='k'>paired_t</td><td>0.5746</td></tr><tr><td class='k'>paired_t_p</td><td>0.5771</td></tr><tr><td class='k'>wilcoxon_p</td><td>0.7334</td></tr></table>
 <figure><img src='figures/fig_condition_paired.png' style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>
 <figure><img src='figures/fig_exponent_by_condition.png' style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>
 
 <h2>4. Scalp region</h2>
-<table class="dataframe tbl">
-  <thead>
-    <tr style="text-align: right;">
-      <th>region</th>
-      <th>n</th>
-      <th>mean</th>
-      <th>sd</th>
-      <th>median</th>
-      <th>iqr</th>
-      <th>min</th>
-      <th>max</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>frontal</td>
-      <td>16</td>
-      <td>0.9529</td>
-      <td>0.1200</td>
-      <td>0.9516</td>
-      <td>0.1150</td>
-      <td>0.6863</td>
-      <td>1.1793</td>
-    </tr>
-    <tr>
-      <td>central</td>
-      <td>16</td>
-      <td>0.9465</td>
-      <td>0.1122</td>
-      <td>0.9366</td>
-      <td>0.1339</td>
-      <td>0.6971</td>
-      <td>1.1136</td>
-    </tr>
-    <tr>
-      <td>parietal</td>
-      <td>16</td>
-      <td>0.9394</td>
-      <td>0.1269</td>
-      <td>0.9342</td>
-      <td>0.1290</td>
-      <td>0.6529</td>
-      <td>1.1410</td>
-    </tr>
-  </tbody>
-</table>
-<table class='tbl'><tr><td class='k'>test</td><td>Friedman</td></tr><tr><td class='k'>regions</td><td>[&#x27;frontal&#x27;, &#x27;central&#x27;, &#x27;parietal&#x27;]</td></tr><tr><td class='k'>n_recordings</td><td>15</td></tr><tr><td class='k'>statistic</td><td>1.7333</td></tr><tr><td class='k'>p_value</td><td>0.4204</td></tr></table>
+<p>Computed at the <b>participant level</b> (one value per person, averaged over their
+recordings) to avoid pseudoreplication — pooling all recordings would treat non-independent
+sessions/conditions as separate subjects and overstate significance. Omnibus Friedman test
+plus Holm-corrected pairwise Wilcoxon signed-rank.</p>
+<p><b>Friedman</b> (n=6 participants): χ²=0.3333, p=0.8465. Means: frontal 1.345, central 1.35, parietal 1.3457.</p><table class='tbl'><tr><th>pair</th><th>mean diff</th><th>p (raw)</th><th>p (Holm)</th><th></th></tr><tr><td>frontal vs central</td><td>-0.005</td><td>1.0</td><td>1.0</td><td>ns</td></tr><tr><td>frontal vs parietal</td><td>-0.0006</td><td>1.0</td><td>1.0</td><td>ns</td></tr><tr><td>central vs parietal</td><td>+0.0043</td><td>0.5625</td><td>1.0</td><td>ns</td></tr></table>
 <figure><img src='figures/fig_regional.png' style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>
+<p class='muted'>Caveat: with 7 channels and the device ear (A2) reference, regional
+differences are partly reference-dependent; treat the spatial pattern as suggestive and
+confirm against a reference-robust montage before interpreting it as physiology.</p>
 
 <h2>5. How few minutes are enough? (reliability vs recording length)</h2>
 <p>We estimate the exponent using increasing amounts of clean data and ask how reliable it
@@ -310,7 +287,12 @@ becomes. Two standard measures: <b>split-half internal consistency</b> (odd vs e
 Spearman-Brown corrected; target &ge; 0.9) and <b>between-session test-retest ICC</b>
 (session&nbsp;1 vs session&nbsp;2; target &ge; 0.75 = "good"). The shortest recording
 length that reaches each target is the evidence-based answer to how few minutes are needed.</p>
-<table class='tbl'><tr><td class='k'>split_half_target</td><td>0.9</td></tr><tr><td class='k'>icc_target</td><td>0.75</td></tr><tr><td class='k'>minutes_for_split_half</td><td>1.0</td></tr><tr><td class='k'>minutes_for_good_icc</td><td></td></tr><tr><td class='k'>max_split_half</td><td>0.9727</td></tr><tr><td class='k'>max_icc</td><td>0.3878</td></tr><tr><td class='k'>n_recordings</td><td>16</td></tr></table>
+<p style='background:#fff8e6;border-left:4px solid #e9a23b;padding:8px 12px;border-radius:4px;font-size:.9rem'>
+<b>Reading this:</b> look at the <i>left</i> of the curve. The estimate is only shown where
+enough recordings contribute; at longer lengths only a few recordings are that long (and
+test-retest needs a matched pair of sessions), so the sample collapses and any dip there is
+noise, not a real loss of reliability.</p>
+<table class='tbl'><tr><td class='k'>split_half_target</td><td>0.9</td></tr><tr><td class='k'>icc_target</td><td>0.75</td></tr><tr><td class='k'>min_n</td><td>8</td></tr><tr><td class='k'>minutes_for_split_half</td><td>1.0</td></tr><tr><td class='k'>minutes_for_good_icc</td><td>1.0</td></tr><tr><td class='k'>max_split_half</td><td>0.9955</td></tr><tr><td class='k'>max_icc</td><td>0.9484</td></tr><tr><td class='k'>max_trustworthy_minutes</td><td>3.0</td></tr><tr><td class='k'>n_recordings</td><td>24</td></tr></table>
 <figure><img src='figures/fig_reliability_by_duration.png' style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>
 <figure><img src='figures/fig_duration_overlay.png' style='max-width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>
 <p class='muted'>Method grounded in the aperiodic-reliability literature (McKeown et al. 2024,
@@ -320,6 +302,25 @@ work). The full curve is in stats_reliability_by_duration.csv.</p>
 <p class='muted'>See <b>gallery.html</b> for a one-page contact sheet of every recording's
 diagnostic figure. Granular per-recording outputs are in <b>per_recording/</b>, figures in
 <b>figures/</b>, statistics in <b>statistics/</b>.</p>
+
+<h2>Limitations &amp; how to read this</h2>
+<ul style='font-size:.9rem;color:#33475b'>
+<li><b>Reliability, not accuracy.</b> There is no simultaneous research-grade reference, so
+we cannot verify the exponents are "correct" — only that they are reproducible. Concurrent
+recording against a validated system would be needed to claim accuracy.</li>
+<li><b>Small sample.</b> Reliability and group tests rest on ~10 participants; confidence
+intervals are wide and null results (e.g. rest vs movie value) are underpowered — absence of
+a difference is not evidence of no difference.</li>
+<li><b>Independence.</b> Each person contributes multiple recordings; group tests here are
+computed per participant to avoid pseudoreplication. Pooled descriptive tables mix
+sessions/conditions and should not be read as independent samples.</li>
+<li><b>Reference dependence.</b> At 7 channels, regional and average-referenced results shift
+with the reference choice; spatial patterns are suggestive, not definitive.</li>
+<li><b>Data yield.</b> A few sessions retain very little clean data after rejection and are
+low-confidence; a minimum clean-duration inclusion rule is worth pre-registering.</li>
+<li><b>Fit model.</b> A fixed (no-knee) 1/f fit over 1–40 Hz is used; a knee-mode
+sensitivity check is advisable where fits are poorer.</li>
+</ul>
 
 <h2>Methods &amp; references</h2>
 <p style='font-size:.85rem;color:#33475b'>

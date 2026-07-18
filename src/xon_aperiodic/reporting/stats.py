@@ -124,6 +124,8 @@ def reliability(master: pd.DataFrame) -> pd.DataFrame:
             mat = pivot.values.astype(float)
             icc = _icc_2_1(mat)
             row["ICC(2,1)"] = round(icc, 4) if icc is not None else ""
+            lo, hi = _icc_ci(mat)
+            row["ICC_95CI_low"], row["ICC_95CI_high"] = lo, hi
             # Pearson r + mean abs diff on the first two sessions
             s = sorted(pivot.columns)[:2]
             a, b = pivot[s[0]].values, pivot[s[1]].values
@@ -138,6 +140,24 @@ def reliability(master: pd.DataFrame) -> pd.DataFrame:
             row["note"] = "need >=2 participants with >=2 complete sessions"
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def _icc_ci(mat: np.ndarray, n_boot: int = 2000, seed: int = 0) -> tuple:
+    """Bootstrap 95% CI for ICC by resampling subjects with replacement."""
+    rng = np.random.default_rng(seed)
+    n = mat.shape[0]
+    if n < 3:
+        return ("", "")
+    vals = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, n)
+        v = _icc_2_1(mat[idx])
+        if v is not None and np.isfinite(v):
+            vals.append(v)
+    if len(vals) < 20:
+        return ("", "")
+    lo, hi = np.percentile(vals, [2.5, 97.5])
+    return (round(float(lo), 3), round(float(hi), 3))
 
 
 def _icc_label(icc: Optional[float]) -> str:
@@ -219,37 +239,70 @@ def regional_summary(master: pd.DataFrame, regions: Dict[str, List[str]]) -> pd.
     return df
 
 
-def regional_test(master: pd.DataFrame, regions: Dict[str, List[str]]) -> Dict[str, Any]:
-    """Friedman test across regions on recordings that have all regions (non-parametric,
-    repeated measures)."""
+def _regional_by_participant(master: pd.DataFrame, regions: Dict[str, List[str]]) -> pd.DataFrame:
+    """One row per PARTICIPANT (mean region exponent across their recordings), so the
+    regional test uses independent subjects instead of pseudoreplicating recordings."""
     d = _ok(master)
-    if d.empty or _sps is None:
-        return dict(note="unavailable")
-    region_names = list(regions.keys())
-    per_region_cols = []
-    matrix = []
+    if d.empty or "participant" not in d.columns:
+        return pd.DataFrame()
+    rows = []
     for _, rec in d.iterrows():
-        region_vals = []
-        for region in region_names:
+        row = {"participant": rec.get("participant", "")}
+        for region, chans in regions.items():
             vals = []
-            for ch in regions[region]:
+            for ch in chans:
                 v = _safe_float(rec.get(f"{ch}_exponent"))
                 if v is None or bool(rec.get(f"{ch}_interpolated")) or bool(rec.get(f"{ch}_excluded")):
                     continue
                 vals.append(v)
-            region_vals.append(np.mean(vals) if vals else np.nan)
-        if all(np.isfinite(region_vals)):
-            matrix.append(region_vals)
-    if len(matrix) < 3 or len(region_names) < 3:
-        return dict(note=f"need >=3 recordings with all {len(region_names)} regions "
-                         f"(have {len(matrix)})")
-    arr = np.array(matrix)
+            row[region] = np.mean(vals) if vals else np.nan
+        rows.append(row)
+    df = pd.DataFrame(rows)
+    return df.groupby("participant")[list(regions.keys())].mean().dropna()
+
+
+def _holm(pvals: List[float]) -> List[float]:
+    order = np.argsort(pvals); k = len(pvals); out = [None] * k
+    for rank, idx in enumerate(order):
+        out[idx] = min(1.0, float(pvals[idx]) * (k - rank))
+    # enforce monotonicity
+    for i in range(1, k):
+        prev = out[order[i - 1]]
+        if out[order[i]] < prev:
+            out[order[i]] = prev
+    return out
+
+
+def regional_test(master: pd.DataFrame, regions: Dict[str, List[str]]) -> Dict[str, Any]:
+    """Friedman omnibus + Holm-corrected pairwise Wilcoxon signed-rank across scalp regions,
+    at the PARTICIPANT level (independent subjects — no pseudoreplication)."""
+    if _sps is None:
+        return dict(note="scipy unavailable")
+    pp = _regional_by_participant(master, regions)
+    names = list(regions.keys())
+    if len(pp) < 3 or len(names) < 3:
+        return dict(note=f"need >=3 participants with all regions (have {len(pp)})")
     try:
-        stat, p = _sps.friedmanchisquare(*[arr[:, i] for i in range(arr.shape[1])])
-        return dict(test="Friedman", regions=region_names, n_recordings=len(matrix),
-                    statistic=round(float(stat), 4), p_value=round(float(p), 4))
+        stat, p = _sps.friedmanchisquare(*[pp[r].values for r in names])
     except Exception as exc:
         return dict(note=f"Friedman failed: {exc}")
+    out = dict(test="Friedman (participant-level)", regions=names, n_participants=int(len(pp)),
+               statistic=round(float(stat), 4), p_value=round(float(p), 4),
+               region_means={r: round(float(pp[r].mean()), 4) for r in names})
+    # post-hoc pairwise (only if omnibus is at least suggestive)
+    pairs = [(names[i], names[j]) for i in range(len(names)) for j in range(i + 1, len(names))]
+    raw = []
+    for a, b in pairs:
+        try:
+            w = _sps.wilcoxon(pp[a].values, pp[b].values)
+            raw.append((a, b, float(w.pvalue), round(float((pp[a] - pp[b]).mean()), 4)))
+        except Exception:
+            raw.append((a, b, float("nan"), float("nan")))
+    holm = _holm([r[2] for r in raw])
+    out["posthoc"] = [dict(pair=f"{a} vs {b}", mean_diff=d, p_raw=round(p, 4),
+                           p_holm=round(hp, 4), significant=(hp < 0.05))
+                      for (a, b, p, d), hp in zip(raw, holm)]
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -264,7 +317,7 @@ def _spearman_brown(r: float) -> float:
 
 def reliability_by_duration(results: List[Any], split_half_target: float = 0.90,
                             icc_target: float = 0.75, grid_step_min: float = 0.5,
-                            min_recordings: int = 4) -> Dict[str, Any]:
+                            min_recordings: int = 4, min_n: int = 8) -> Dict[str, Any]:
     """How reliable the exponent estimate is as a function of how much clean data is used.
 
     Two grounded curves, both as a function of duration L:
@@ -339,19 +392,34 @@ def reliability_by_duration(results: List[Any], split_half_target: float = 0.90,
 
     curve = pd.DataFrame(rows)
 
-    def _first_at_least(col: str, target: float) -> str:
-        sub = curve[pd.to_numeric(curve[col], errors="coerce") >= target]
+    # Only trust a duration where at least ``min_n`` recordings contribute. Beyond that,
+    # the sample collapses (few recordings are long enough, and test-retest needs a matched
+    # pair of sessions), so the estimate becomes noise and must not drive conclusions.
+    def _trust(col: str, ncol: str) -> pd.DataFrame:
+        return curve[pd.to_numeric(curve[ncol], errors="coerce") >= min_n]
+
+    def _first_at_least(col: str, ncol: str, target: float) -> str:
+        sub = _trust(col, ncol)
+        sub = sub[pd.to_numeric(sub[col], errors="coerce") >= target]
         return float(sub["minutes"].iloc[0]) if len(sub) else ""
+
+    def _max(col: str, ncol: str) -> Any:
+        sub = pd.to_numeric(_trust(col, ncol)[col], errors="coerce").dropna()
+        return round(float(sub.max()), 4) if len(sub) else ""
+
+    def _max_trustworthy_minutes() -> Any:
+        sub = curve[(pd.to_numeric(curve["n_icc"], errors="coerce") >= min_n) |
+                    (pd.to_numeric(curve["n_split_half"], errors="coerce") >= min_n)]
+        return float(sub["minutes"].max()) if len(sub) else ""
 
     return dict(
         curve=curve,
-        split_half_target=split_half_target, icc_target=icc_target,
-        minutes_for_split_half=_first_at_least("split_half_reliability", split_half_target),
-        minutes_for_good_icc=_first_at_least("test_retest_icc", icc_target),
-        max_split_half=float(pd.to_numeric(curve["split_half_reliability"], errors="coerce").max())
-            if curve["split_half_reliability"].astype(str).str.len().gt(0).any() else "",
-        max_icc=float(pd.to_numeric(curve["test_retest_icc"], errors="coerce").max())
-            if curve["test_retest_icc"].astype(str).str.len().gt(0).any() else "",
+        split_half_target=split_half_target, icc_target=icc_target, min_n=min_n,
+        minutes_for_split_half=_first_at_least("split_half_reliability", "n_split_half", split_half_target),
+        minutes_for_good_icc=_first_at_least("test_retest_icc", "n_icc", icc_target),
+        max_split_half=_max("split_half_reliability", "n_split_half"),
+        max_icc=_max("test_retest_icc", "n_icc"),
+        max_trustworthy_minutes=_max_trustworthy_minutes(),
         n_recordings=len(curves),
     )
 
@@ -370,12 +438,23 @@ def _safe_float(x: Any) -> Optional[float]:
 # --------------------------------------------------------------------------
 def compute_all(master: pd.DataFrame, results: List[Any], regions: Dict[str, List[str]],
                 quiet: str, noisy: str, split_half_target: float = 0.90,
-                icc_target: float = 0.75) -> Dict[str, Any]:
+                icc_target: float = 0.75, min_n: int = 8,
+                min_clean_minutes: float = 0.0) -> Dict[str, Any]:
+    n_before = len(master)
+    excluded = []
+    if min_clean_minutes and min_clean_minutes > 0 and "clean_minutes" in master.columns:
+        cm = _num(master["clean_minutes"])
+        excluded = list(master.loc[cm < float(min_clean_minutes), "subject_id"]) if "subject_id" in master.columns else []
+        master = master[cm >= float(min_clean_minutes)]
     return dict(
+        inclusion=dict(min_clean_minutes=min_clean_minutes, n_before=n_before,
+                       n_included=len(master), n_excluded=n_before - len(master),
+                       excluded_recordings="; ".join(map(str, excluded))),
         quality=quality_summary(master),
         reliability=reliability(master),                       # full-length test-retest ICC
         contrast=condition_contrast(master, quiet, noisy),
         regional=regional_summary(master, regions),
         regional_test=regional_test(master, regions),
-        duration_reliability=reliability_by_duration(results, split_half_target, icc_target),
+        regional_pp=_regional_by_participant(master, regions),
+        duration_reliability=reliability_by_duration(results, split_half_target, icc_target, min_n=min_n),
     )

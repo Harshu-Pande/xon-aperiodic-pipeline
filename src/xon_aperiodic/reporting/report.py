@@ -31,6 +31,23 @@ def _dict_to_html(d: Dict[str, Any]) -> str:
     return f"<table class='tbl'>{rows}</table>"
 
 
+def _regional_test_html(rt: dict) -> str:
+    if not rt or rt.get("note"):
+        return f"<p class='muted'>{html.escape(str(rt.get('note', 'unavailable')))}</p>"
+    means = rt.get("region_means", {})
+    head = (f"<p><b>Friedman</b> (n={rt.get('n_participants')} participants): "
+            f"χ²={rt.get('statistic')}, p={rt.get('p_value')}. "
+            f"Means: " + ", ".join(f"{k} {v}" for k, v in means.items()) + ".</p>")
+    rows = "".join(
+        f"<tr><td>{html.escape(ph['pair'])}</td><td>{ph['mean_diff']:+}</td>"
+        f"<td>{ph['p_raw']}</td><td>{ph['p_holm']}</td>"
+        f"<td>{'✓ significant' if ph['significant'] else 'ns'}</td></tr>"
+        for ph in rt.get("posthoc", []))
+    tbl = (f"<table class='tbl'><tr><th>pair</th><th>mean diff</th><th>p (raw)</th>"
+           f"<th>p (Holm)</th><th></th></tr>{rows}</table>") if rows else ""
+    return head + tbl
+
+
 def _img(path: str, out_dir: Path) -> str:
     if not path:
         return ""
@@ -89,8 +106,11 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
     noisy = cfg.get("stats", "noisy_condition", "movie")
     sh_target = float(cfg.get("stats", "reliability_split_half_target", 0.90))
     icc_target = float(cfg.get("stats", "reliability_icc_target", 0.75))
+    min_n = int(cfg.get("stats", "reliability_min_n", 8))
+    min_clean = float(cfg.get("stats", "min_clean_minutes", 0.0))
 
-    st = S.compute_all(master_df, results, regions, quiet, noisy, sh_target, icc_target)
+    st = S.compute_all(master_df, results, regions, quiet, noisy, sh_target, icc_target,
+                       min_n, min_clean)
 
     # organised sub-folders: figures/ and statistics/ (per_recording/ is written by the pipeline)
     fig_dir = out_dir / "figures"; fig_dir.mkdir(parents=True, exist_ok=True)
@@ -122,7 +142,8 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
         pd.DataFrame([scalar]).to_csv(p, index=False)
         paths["stats_summary"] = str(p)
 
-    figs = F.build_all(master_df, results, st["regional"], str(fig_dir), quiet, noisy, reliab=rel)
+    figs = F.build_all(master_df, results, st["regional_pp"], st["regional_test"],
+                       str(fig_dir), quiet, noisy, reliab=rel)
     paths.update({f"fig_{k}": v for k, v in figs.items()})
 
     # one-page gallery of every recording's diagnostic figure
@@ -145,10 +166,12 @@ h1{{font-size:1.7rem}} h2{{font-size:1.2rem;margin-top:2rem;border-bottom:2px so
 .lead{{background:#eef4f8;border-left:4px solid #2a6f97;padding:10px 14px;border-radius:4px}}
 </style></head><body>
 <h1>Xon aperiodic pipeline &mdash; cohort report</h1>
-<p class='lead'>Recordings processed: <b>{n_ok}</b>. This report answers the study's core
-questions: can the Xon headset recover the aperiodic exponent accurately, is it reliable
-across a person's repeat sessions, does it survive a noisy condition, and how few minutes
-of clean data are needed.</p>
+<p class='lead'>Recordings processed: <b>{n_ok}</b>. This is a <b>measurement-validation</b> report:
+how <b>reliably and consistently</b> the Xon headset measures the aperiodic exponent —
+across a person's repeat sessions, across a quiet vs noisy condition, by scalp region, and
+with how few minutes of clean data. <b>Important:</b> without a simultaneous research-grade
+reference recording, this assesses <b>reliability and consistency, not absolute accuracy</b>
+(we cannot know the "true" exponent to compare against). See Limitations at the end.</p>
 
 <p style='margin:14px 0'><a href='gallery.html' style='display:inline-block;background:#2a6f97;
 color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600'>
@@ -163,21 +186,35 @@ color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:
 {_img(figs.get('quality',''), out_dir)}
 
 <h2>2. Test-retest reliability (across a person's repeat sessions)</h2>
-<p>ICC(2,1) is the standard test-retest statistic (&gt;0.75 good, &gt;0.9 excellent).</p>
+<p>ICC(2,1) is the standard test-retest statistic (&gt;0.75 good, &gt;0.9 excellent), with a
+bootstrap 95% CI. At this sample size the CIs are wide, so read them, not just the point
+estimate. The scatter (identity line) and the Bland-Altman plot (bias &amp; 95% limits of
+agreement) show the agreement directly.</p>
 {_df_to_html(st['reliability'])}
 {_img(figs.get('test_retest',''), out_dir)}
+{_img(figs.get('bland_altman',''), out_dir)}
 
 <h2>3. Quiet vs noisy condition ({html.escape(str(quiet))} vs {html.escape(str(noisy))})</h2>
-<p>Does the exponent hold up when the participant is watching a movie (more movement/noise)
-versus resting? A paired contrast within each participant-session.</p>
+<p><b>The robustness question is best answered by reliability and data quality, not by the
+exponent value.</b> Rest and movie are different brain states, so we would not necessarily
+expect the exponent to be identical, and the value contrast below is underpowered. The
+informative comparison: test-retest reliability and clean-data yield are markedly better in
+the quiet (rest) condition than the noisy (movie) one — see section 2 and the quality table.
+The paired value contrast is shown for completeness.</p>
 {_dict_to_html(st['contrast'])}
 {_img(figs.get('condition_paired',''), out_dir)}
 {_img(figs.get('exponent_by_condition',''), out_dir)}
 
 <h2>4. Scalp region</h2>
-{_df_to_html(st['regional'])}
-{_dict_to_html(st['regional_test'])}
+<p>Computed at the <b>participant level</b> (one value per person, averaged over their
+recordings) to avoid pseudoreplication — pooling all recordings would treat non-independent
+sessions/conditions as separate subjects and overstate significance. Omnibus Friedman test
+plus Holm-corrected pairwise Wilcoxon signed-rank.</p>
+{_regional_test_html(st['regional_test'])}
 {_img(figs.get('regional',''), out_dir)}
+<p class='muted'>Caveat: with 7 channels and the device ear (A2) reference, regional
+differences are partly reference-dependent; treat the spatial pattern as suggestive and
+confirm against a reference-robust montage before interpreting it as physiology.</p>
 
 <h2>5. How few minutes are enough? (reliability vs recording length)</h2>
 <p>We estimate the exponent using increasing amounts of clean data and ask how reliable it
@@ -185,6 +222,11 @@ becomes. Two standard measures: <b>split-half internal consistency</b> (odd vs e
 Spearman-Brown corrected; target &ge; {sh_target}) and <b>between-session test-retest ICC</b>
 (session&nbsp;1 vs session&nbsp;2; target &ge; {icc_target} = "good"). The shortest recording
 length that reaches each target is the evidence-based answer to how few minutes are needed.</p>
+<p style='background:#fff8e6;border-left:4px solid #e9a23b;padding:8px 12px;border-radius:4px;font-size:.9rem'>
+<b>Reading this:</b> look at the <i>left</i> of the curve. The estimate is only shown where
+enough recordings contribute; at longer lengths only a few recordings are that long (and
+test-retest needs a matched pair of sessions), so the sample collapses and any dip there is
+noise, not a real loss of reliability.</p>
 {_dict_to_html({k: v for k, v in (st['duration_reliability'] or {}).items() if k != 'curve'})}
 {_img(figs.get('reliability_by_duration',''), out_dir)}
 {_img(figs.get('duration_overlay',''), out_dir)}
@@ -195,6 +237,25 @@ work). The full curve is in stats_reliability_by_duration.csv.</p>
 <p class='muted'>See <b>gallery.html</b> for a one-page contact sheet of every recording's
 diagnostic figure. Granular per-recording outputs are in <b>per_recording/</b>, figures in
 <b>figures/</b>, statistics in <b>statistics/</b>.</p>
+
+<h2>Limitations &amp; how to read this</h2>
+<ul style='font-size:.9rem;color:#33475b'>
+<li><b>Reliability, not accuracy.</b> There is no simultaneous research-grade reference, so
+we cannot verify the exponents are "correct" — only that they are reproducible. Concurrent
+recording against a validated system would be needed to claim accuracy.</li>
+<li><b>Small sample.</b> Reliability and group tests rest on ~10 participants; confidence
+intervals are wide and null results (e.g. rest vs movie value) are underpowered — absence of
+a difference is not evidence of no difference.</li>
+<li><b>Independence.</b> Each person contributes multiple recordings; group tests here are
+computed per participant to avoid pseudoreplication. Pooled descriptive tables mix
+sessions/conditions and should not be read as independent samples.</li>
+<li><b>Reference dependence.</b> At 7 channels, regional and average-referenced results shift
+with the reference choice; spatial patterns are suggestive, not definitive.</li>
+<li><b>Data yield.</b> A few sessions retain very little clean data after rejection and are
+low-confidence; a minimum clean-duration inclusion rule is worth pre-registering.</li>
+<li><b>Fit model.</b> A fixed (no-knee) 1/f fit over 1–40 Hz is used; a knee-mode
+sensitivity check is advisable where fits are poorer.</li>
+</ul>
 
 <h2>Methods &amp; references</h2>
 <p style='font-size:.85rem;color:#33475b'>

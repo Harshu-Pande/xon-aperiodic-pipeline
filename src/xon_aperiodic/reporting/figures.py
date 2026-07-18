@@ -132,20 +132,40 @@ def condition_paired(master: pd.DataFrame, out_dir: str, quiet: str = "rest", no
     return p
 
 
-def regional_bar(regional_df: pd.DataFrame, out_dir: str) -> Optional[str]:
-    if regional_df is None or regional_df.empty:
+def regional_bar(pp_df, regional_test: dict, out_dir: str) -> Optional[str]:
+    """Participant-level regional exponents: each participant's three regions connected,
+    group means overlaid, and the omnibus + significant post-hoc p-values annotated."""
+    if pp_df is None or len(pp_df) == 0:
         return None
-    d = regional_df[_num(regional_df["n"]) > 0].copy()
-    if d.empty:
+    regions = [r for r in ["frontal", "central", "parietal"] if r in pp_df.columns]
+    if len(regions) < 2:
         return None
-    fig, ax = plt.subplots(figsize=(7, 5))
-    means = _num(d["mean"]).values
-    sds = _num(d["sd"]).fillna(0).values
-    colors = ["#3d5a80", "#98c1d9", "#ee6c4d"][:len(d)]
-    ax.bar(d["region"], means, yerr=sds, capsize=5, color=colors, edgecolor="black", alpha=0.9)
+    x = list(range(len(regions)))
+    fig, ax = plt.subplots(figsize=(7.5, 5.5))
+    # per-participant lines (shows the within-subject pattern honestly)
+    for _, row in pp_df.iterrows():
+        ax.plot(x, [row[r] for r in regions], color="#adb5bd", alpha=0.6, marker="o",
+                markersize=4, linewidth=1, zorder=1)
+    means = [float(pp_df[r].mean()) for r in regions]
+    sems = [float(pp_df[r].std(ddof=1) / np.sqrt(len(pp_df))) for r in regions]
+    ax.errorbar(x, means, yerr=sems, color="#264653", marker="s", markersize=10,
+                linewidth=2.5, capsize=6, zorder=3, label="mean ± SEM")
+    ax.set_xticks(x); ax.set_xticklabels(regions)
     ax.set_ylabel("Aperiodic exponent")
     ax.set_xlabel("Scalp region")
-    ax.set_title("Aperiodic exponent by scalp region (mean +/- SD)")
+    n = regional_test.get("n_participants", len(pp_df))
+    ax.set_title(f"Aperiodic exponent by scalp region (n={n} participants)")
+    # annotate omnibus + significant post-hoc
+    lines = []
+    if regional_test.get("p_value") not in (None, ""):
+        lines.append(f"Friedman: χ²={regional_test.get('statistic')}, p={regional_test.get('p_value')}")
+    for ph in regional_test.get("posthoc", []):
+        if ph.get("significant"):
+            lines.append(f"{ph['pair']}: p(Holm)={ph['p_holm']} *")
+    if lines:
+        ax.text(0.02, 0.98, "\n".join(lines), transform=ax.transAxes, va="top", ha="left",
+                fontsize=9, bbox=dict(boxstyle="round", facecolor="#fff8e6", edgecolor="#e9a23b"))
+    ax.legend(loc="lower left")
     fig.tight_layout()
     p = os.path.join(out_dir, "fig_regional.png")
     fig.savefig(p, bbox_inches="tight"); plt.close(fig)
@@ -184,33 +204,51 @@ def duration_overlay(results: List[Any], out_dir: str) -> Optional[str]:
 
 
 def reliability_curve(reliab: dict, out_dir: str) -> Optional[str]:
-    """The headline: split-half internal consistency and between-session ICC as a
-    function of recording length, with the target lines and the minutes each is met."""
+    """Split-half internal consistency and between-session ICC vs recording length.
+
+    Only the region where enough recordings contribute is drawn: past a certain length
+    only a handful of recordings are long enough (and test-retest needs a matched pair of
+    sessions), so the estimate there is noise, not signal. Plotting it would misleadingly
+    suggest reliability collapses with more data, when it is just a shrinking sample.
+    """
     curve = reliab.get("curve")
     if curve is None or len(curve) == 0:
         return None
+    min_n = int(reliab.get("min_n", 8))
     m = pd.to_numeric(curve["minutes"], errors="coerce")
     sh = pd.to_numeric(curve["split_half_reliability"], errors="coerce")
     icc = pd.to_numeric(curve["test_retest_icc"], errors="coerce")
-    if not (sh.notna().any() or icc.notna().any()):
+    n_sh = pd.to_numeric(curve["n_split_half"], errors="coerce")
+    n_icc = pd.to_numeric(curve["n_icc"], errors="coerce")
+    sh_ok = sh.notna() & (n_sh >= min_n)     # only trustworthy points
+    icc_ok = icc.notna() & (n_icc >= min_n)
+    if not (sh_ok.any() or icc_ok.any()):
         return None
     sh_t = reliab.get("split_half_target", 0.90)
     icc_t = reliab.get("icc_target", 0.75)
+
     fig, ax = plt.subplots(figsize=(8.5, 5))
-    if sh.notna().any():
-        ax.plot(m, sh, marker="o", color="#2a6f97", label="split-half (odd vs even)")
+    if sh_ok.any():
+        ax.plot(m[sh_ok], sh[sh_ok], marker="o", color="#2a6f97", label="split-half (odd vs even)")
         ax.axhline(sh_t, color="#2a6f97", linestyle=":", alpha=0.7)
-    if icc.notna().any():
-        ax.plot(m, icc, marker="s", color="#e07a5f", label="test-retest ICC (session 1 vs 2)")
+    if icc_ok.any():
+        ax.plot(m[icc_ok], icc[icc_ok], marker="s", color="#e07a5f",
+                label="test-retest ICC (session 1 vs 2)")
         ax.axhline(icc_t, color="#e07a5f", linestyle=":", alpha=0.7)
     for key, color in [("minutes_for_split_half", "#2a6f97"), ("minutes_for_good_icc", "#e07a5f")]:
         v = reliab.get(key, "")
         if v not in ("", None):
             ax.axvline(float(v), color=color, linestyle="--", alpha=0.6)
+    # x-limit to the trustworthy region (a little headroom)
+    max_min = reliab.get("max_trustworthy_minutes", "")
+    if max_min not in ("", None):
+        ax.set_xlim(0, float(max_min) * 1.05)
     ax.set_ylim(0, 1.02)
     ax.set_xlabel("Clean data used (minutes)")
     ax.set_ylabel("Reliability")
-    ax.set_title("How reliability grows with recording length")
+    ax.set_title("Reliability of the aperiodic exponent vs recording length")
+    ax.text(0.5, 1.015, f"shown only where ≥ {min_n} recordings contribute",
+            transform=ax.transAxes, ha="center", va="bottom", fontsize=9, color="#6b7c93")
     ax.legend(loc="lower right")
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
@@ -245,14 +283,53 @@ def quality_scatter(master: pd.DataFrame, out_dir: str) -> Optional[str]:
     return p
 
 
-def build_all(master: pd.DataFrame, results: List[Any], regional_df: pd.DataFrame,
+def bland_altman(master: pd.DataFrame, out_dir: str) -> Optional[str]:
+    """Bland-Altman agreement of session 1 vs session 2 (per condition): difference vs
+    mean, with the mean bias and 95% limits of agreement — the standard test-retest plot."""
+    d = _ok(master)
+    if d.empty or not {"participant", "session", "condition"}.issubset(d.columns):
+        return None
+    conds = [c for c in sorted(set(d["condition"])) if c in ("rest", "movie")] or sorted(set(d["condition"]))
+    panels = []
+    for cond in conds:
+        g = d[d["condition"] == cond]
+        piv = g.pivot_table(index="participant", columns="session", values="AVERAGE_exponent",
+                            aggfunc="mean").dropna(axis=0, how="any")
+        if piv.shape[0] >= 3 and piv.shape[1] >= 2:
+            s = sorted(piv.columns)[:2]
+            panels.append((cond, piv[s[0]].values, piv[s[1]].values))
+    if not panels:
+        return None
+    fig, axes = plt.subplots(1, len(panels), figsize=(5.5 * len(panels), 5), squeeze=False)
+    for ax, (cond, a, b) in zip(axes[0], panels):
+        mean = (a + b) / 2; diff = a - b
+        bias = float(np.mean(diff)); sd = float(np.std(diff, ddof=1))
+        ax.scatter(mean, diff, color=_color(cond), s=55, alpha=0.8, edgecolor="white", zorder=3)
+        ax.axhline(bias, color="#264653", linestyle="-", label=f"bias {bias:+.3f}")
+        ax.axhline(bias + 1.96 * sd, color="#e63946", linestyle="--",
+                   label=f"95% LoA ±{1.96*sd:.3f}")
+        ax.axhline(bias - 1.96 * sd, color="#e63946", linestyle="--")
+        ax.axhline(0, color="gray", linewidth=0.6)
+        ax.set_title(f"{cond} (n={len(a)})")
+        ax.set_xlabel("Mean of the two sessions")
+        ax.set_ylabel("Session 1 − Session 2")
+        ax.legend(fontsize=8)
+    fig.suptitle("Test–retest agreement (Bland–Altman)")
+    fig.tight_layout()
+    p = os.path.join(out_dir, "fig_bland_altman.png")
+    fig.savefig(p, bbox_inches="tight"); plt.close(fig)
+    return p
+
+
+def build_all(master: pd.DataFrame, results: List[Any], regional_pp, regional_test: dict,
               out_dir: str, quiet: str = "rest", noisy: str = "movie",
               reliab: Optional[dict] = None) -> Dict[str, str]:
     figs: Dict[str, Optional[str]] = {
         "exponent_by_condition": exponent_by_condition(master, out_dir),
         "test_retest": test_retest_scatter(master, out_dir),
+        "bland_altman": bland_altman(master, out_dir),
         "condition_paired": condition_paired(master, out_dir, quiet, noisy),
-        "regional": regional_bar(regional_df, out_dir),
+        "regional": regional_bar(regional_pp, regional_test or {}, out_dir),
         "reliability_by_duration": reliability_curve(reliab or {}, out_dir),
         "duration_overlay": duration_overlay(results, out_dir),
         "quality": quality_scatter(master, out_dir),
