@@ -238,11 +238,21 @@ noise, not a real loss of reliability.</p>
 {_img(figs.get('reliability_by_duration',''), out_dir)}
 {_img(figs.get('duration_overlay',''), out_dir)}
 <h3 style='font-size:1.05rem'>Per-recording: when does each person's estimate settle?</h3>
-<p>The cohort curve above is the group answer. Each <i>individual</i> recording also has its
-own answer: its estimate is noisy at first and settles as clean data accumulates. For each
-recording we mark the length at which its two independent halves (odd vs even epochs) agree
-within tolerance — a non-circular, per-person "how much is enough" (shown on each recording's
-duration-curve plot in per_recording/, and in the <code>minutes_to_stabilize</code> column).</p>
+<p>Each recording's duration-curve plot (in per_recording/) marks two <i>different</i> "how
+much is enough" points, and the distinction matters:</p>
+<ul style='font-size:.9rem'>
+<li><b>Precise</b> (<code>minutes_to_stabilize</code>): where the two independent halves
+(odd vs even epochs) agree — the estimate is <i>repeatable</i>. Usually reached quickly.</li>
+<li><b>Reaches full value</b> (<code>minutes_to_converge</code>): where the running estimate
+stops drifting toward the full-length value. <b>This is often much later</b> — short
+recordings can give a <i>precise but biased</i> (typically too low) exponent that keeps
+rising as more data is added.</li>
+</ul>
+<p style='background:#fff8e6;border-left:4px solid #e9a23b;padding:8px 12px;border-radius:4px;font-size:.9rem'>
+<b>Why both matter:</b> a few minutes may give a <i>reliable</i> exponent, but not the
+<i>same</i> value a long recording would — the short estimate can be systematically low.
+For comparing people this bias may partly cancel if it is consistent; for absolute values it
+does not. Worth confirming with the fixed vs knee fit and against a longer reference.</p>
 {_dict_to_html(st.get('stabilization', {}))}
 <p class='muted'>Method grounded in the aperiodic-reliability literature (McKeown et al. 2024,
 Cerebral Cortex; epoch-increment split-half reliability as in EEG power-spectrum reliability

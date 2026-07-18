@@ -295,3 +295,27 @@ def duration_stabilization(dur_df: pd.DataFrame, tolerance: float = 0.1) -> Opti
         if within[i:].all():
             return round(float(minutes[i]), 3)
     return None
+
+
+def duration_convergence_to_full(dur_df: pd.DataFrame, tolerance: float = 0.1) -> Optional[float]:
+    """Per-recording 'minutes for the estimate to reach its full-recording value'.
+
+    First length at which the running all-epochs exponent is within ``tolerance`` of the
+    full-length value and stays within it. This captures the BIAS that short recordings can
+    have (a precise but systematically low estimate), which the odd/even precision metric
+    does not. It is descriptive (it uses the recording's own endpoint as the target), so it
+    complements — does not replace — the reliability analyses.
+    """
+    if dur_df is None or dur_df.empty or "exponent_all" not in dur_df.columns:
+        return None
+    df = dur_df.dropna(subset=["exponent_all"]).sort_values("clean_minutes")
+    if len(df) < 2:
+        return None
+    vals = df["exponent_all"].values
+    minutes = df["clean_minutes"].values
+    full = float(vals[-1])
+    within = np.abs(vals - full) <= float(tolerance)
+    for i in range(len(within)):
+        if within[i:].all():
+            return round(float(minutes[i]), 3)
+    return None

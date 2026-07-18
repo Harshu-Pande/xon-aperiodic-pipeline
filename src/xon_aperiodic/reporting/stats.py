@@ -441,7 +441,13 @@ def stabilization_summary(master: pd.DataFrame) -> Dict[str, Any]:
                pct_stabilized=round(100.0 * len(vals) / n_tot, 1) if n_tot else 0.0)
     if len(vals):
         desc = _describe(vals)
-        out.update({f"minutes_{k}": v for k, v in desc.items() if k in ("median", "iqr", "min", "max")})
+        out.update({f"precise_minutes_{k}": v for k, v in desc.items() if k in ("median", "iqr", "min", "max")})
+    if "minutes_to_converge" in d.columns:
+        cvals = _num(d["minutes_to_converge"]).dropna().values
+        if len(cvals):
+            cdesc = _describe(cvals)
+            out.update({f"reach_full_value_minutes_{k}": v for k, v in cdesc.items()
+                        if k in ("median", "iqr", "min", "max")})
     return out
 
 

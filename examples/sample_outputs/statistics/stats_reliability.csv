@@ -1,3 +1,3 @@
 condition,n_participants_complete,n_sessions,"ICC(2,1)",ICC_95CI_low,ICC_95CI_high,pearson_r,pearson_p,mean_abs_session_diff,note
-movie,6,2,0.989,0.739,0.992,0.9889,0.0002,0.0527,excellent reliability
-rest,6,2,0.9944,0.977,1.0,0.9977,0.0,0.0234,excellent reliability
+movie,6,2,0.9001,0.195,0.99,0.9025,0.0138,0.0523,excellent reliability
+rest,6,2,0.8701,0.38,0.942,0.9573,0.0027,0.0613,good reliability

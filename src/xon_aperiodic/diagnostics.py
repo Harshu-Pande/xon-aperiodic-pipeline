@@ -126,9 +126,11 @@ def save_block_plot(results_df: pd.DataFrame, output_dir: str, subject_id: str) 
 
 
 def save_duration_plot(dur_df: pd.DataFrame, subject_id: str, output_dir: str,
-                       stabilize_min: Optional[float] = None) -> Optional[str]:
-    """Per-recording: exponent estimate as clean data accumulates, with the odd/even
-    split and the point where the two independent halves agree (this person's 'enough')."""
+                       stabilize_min: Optional[float] = None,
+                       converge_min: Optional[float] = None) -> Optional[str]:
+    """Per-recording: exponent estimate as clean data accumulates. Two 'how much is enough'
+    markers: where the two independent halves agree (precision) and where the running
+    estimate reaches the full-length value (removes short-recording bias)."""
     if dur_df is None or dur_df.empty:
         return None
     fig, ax = plt.subplots(figsize=(9, 5))
@@ -144,7 +146,10 @@ def save_duration_plot(dur_df: pd.DataFrame, subject_id: str, output_dir: str,
         ax.axhline(full, linestyle=":", color="gray", label=f"full-length = {full:.3f}")
     if stabilize_min is not None:
         ax.axvline(float(stabilize_min), color="green", linestyle="-", alpha=0.5, linewidth=2,
-                   label=f"stabilizes by {float(stabilize_min):.1f} min")
+                   label=f"precise (halves agree) by {float(stabilize_min):.1f} min")
+    if converge_min is not None:
+        ax.axvline(float(converge_min), color="purple", linestyle="-.", alpha=0.6, linewidth=2,
+                   label=f"reaches full value by {float(converge_min):.1f} min")
     ax.set_xlabel("Clean data used (minutes)")
     ax.set_ylabel("Aperiodic exponent")
     ax.set_title(f"Exponent vs recording length | {subject_id}")
