@@ -121,7 +121,7 @@ h1{{font-size:1.5rem;margin:0 0 4px}}
 .links{{margin-top:4px;font-size:.8rem}} .links a{{color:#2a6f97;text-decoration:none}}
 </style></head><body>
 <h1>Diagnostics gallery</h1>
-<div class='sub'>{summary}</div>
+<div class='sub'>{summary} &middot; <a href='cohort_report.html'>&larr; back to the cohort report</a></div>
 <div class='controls'>
   <button class='active' onclick="filt(this,'all')">All</button>
   <button onclick="filt(this,'rest')">Rest</button>

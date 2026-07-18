@@ -21,12 +21,17 @@ def setup_logging(output_dir: Optional[Path] = None, level: int = logging.INFO,
     """Configure the package logger. Console always; file if output_dir is given."""
     logger = logging.getLogger(_LOGGER_NAME)
     logger.setLevel(level)
-    for h in list(logger.handlers):        # close before dropping so file handles don't leak
+    # Drop old handlers, but PRESERVE any tagged with _keep (e.g. a GUI progress handler),
+    # closing the rest so file handles don't leak.
+    kept = [h for h in logger.handlers if getattr(h, "_keep", False)]
+    for h in list(logger.handlers):
+        if h in kept:
+            continue
         try:
             h.close()
         except Exception:
             pass
-    logger.handlers.clear()
+    logger.handlers = list(kept)
     logger.propagate = False
 
     fmt = logging.Formatter("%(message)s")

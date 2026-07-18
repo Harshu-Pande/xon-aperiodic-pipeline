@@ -1,309 +1,476 @@
-"""Offline GUI (Streamlit) with a native folder picker and full settings.
+"""Native desktop GUI (Tkinter) — opens instantly, no web server, no Streamlit.
 
-Runs entirely on the local machine - Streamlit serves to 127.0.0.1, nothing is
-uploaded anywhere, so it is HIPAA-safe for real Xon data. Launch with:
-    xon-pipeline gui      (or double-click the Start Here launcher)
+Designed for non-programmer scientists: the front-and-centre action is to DRAG your
+recordings folder (or individual files) onto a drop zone. Manual path entry and a native
+Browse button are there too, as secondary options. If nothing is chosen for the output,
+results are saved to an ``outputs`` folder inside the program.
 
-Design goals: a scientist should be able to run and fully configure the pipeline
-without ever seeing code or a file path. A native "Browse" button opens the real
-macOS/Windows folder chooser; typed paths are cleaned automatically; every setting
-in config.yaml is available, with basics up top and the rest under "Advanced".
+Runs entirely on the local machine (HIPAA-safe). Drag-and-drop uses the optional
+``tkinterdnd2`` package; without it, the drop zone becomes a click-to-browse area and
+everything else still works.
 """
 from __future__ import annotations
 
-import argparse
+import logging
 import os
-import subprocess
-import sys
+import queue
+import threading
+import webbrowser
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from typing import List, Optional
+
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
 
 try:
-    import streamlit as st
-except ImportError:                       # pragma: no cover
-    print("This module requires streamlit:  pip install streamlit")
-    sys.exit(1)
+    from tkinterdnd2 import TkinterDnD, DND_FILES
+    _HAS_DND = True
+except Exception:                          # pragma: no cover
+    _HAS_DND = False
 
-import pandas as pd
-
-from xon_aperiodic.config import load_config, default_config_path
-from xon_aperiodic.batch import run_batch, find_xdf_files
+from .config import load_config
+from .logging_utils import get_logger
 
 
 # --------------------------------------------------------------------------
-# helpers: native folder picker + robust path cleaning
+# small helpers
 # --------------------------------------------------------------------------
-def pick_folder(prompt: str = "Select a folder") -> str | None:
-    """Open the operating system's native folder chooser and return the path."""
-    try:
-        if sys.platform == "darwin":
-            script = f'POSIX path of (choose folder with prompt "{prompt}")'
-            r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=120)
-            return r.stdout.strip() or None
-        if sys.platform.startswith("win"):
-            ps = ("Add-Type -AssemblyName System.Windows.Forms;"
-                  "$f=New-Object System.Windows.Forms.FolderBrowserDialog;"
-                  "if($f.ShowDialog() -eq 'OK'){Write-Output $f.SelectedPath}")
-            r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                               capture_output=True, text=True, timeout=120)
-            return r.stdout.strip() or None
-        r = subprocess.run(["zenity", "--file-selection", "--directory", "--title", prompt],
-                           capture_output=True, text=True, timeout=120)
-        return r.stdout.strip() or None
-    except Exception:
-        return None
-
-
 def clean_path(s: str) -> str:
-    """Forgive the many ways a pasted path arrives: surrounding quotes, file:// URLs,
-    backslash-escaped spaces, ~, and stray whitespace."""
     if not s:
         return ""
     s = s.strip()
-    if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"":     # wrapped in quotes
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"":
         s = s[1:-1]
     if s.startswith("file://"):
+        from urllib.parse import unquote, urlparse
         s = unquote(urlparse(s).path)
-    s = s.replace("\\ ", " ").strip().strip("'\"")           # unescape spaces
-    s = os.path.expanduser(s)
-    return s
+    return os.path.expanduser(s.replace("\\ ", " ").strip().strip("'\""))
 
 
-def _folder_field(label: str, key: str, default: str, prompt: str, help_text: str) -> str:
-    """A text box + native Browse button that stay in sync."""
-    val_key = f"{key}_val"
-    if val_key not in st.session_state:
-        st.session_state[val_key] = default
-    c1, c2 = st.columns([4, 1])
-    if c2.button("📁 Browse", key=f"{key}_btn"):
-        picked = pick_folder(prompt)
-        if picked:
-            st.session_state[val_key] = picked
-    typed = c1.text_input(label, value=st.session_state[val_key], key=f"{key}_box", help=help_text)
-    st.session_state[val_key] = typed
-    return clean_path(typed)
+class Tooltip:
+    """Hover help — the '?' equivalent."""
+    def __init__(self, widget, text: str):
+        self.widget, self.text, self.tip = widget, text, None
+        widget.bind("<Enter>", self._show)
+        widget.bind("<Leave>", self._hide)
+
+    def _show(self, _=None):
+        if self.tip or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        self.tip = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tk.Label(tw, text=self.text, justify="left", background="#ffffe0", relief="solid",
+                 borderwidth=1, wraplength=360, font=("Helvetica", 10)).pack(ipadx=4, ipady=2)
+
+    def _hide(self, _=None):
+        if self.tip:
+            self.tip.destroy()
+            self.tip = None
 
 
-def _get_config_arg() -> str | None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default=None)
-    args, _ = parser.parse_known_args()
-    return args.config
+def _help(parent, text: str):
+    lbl = tk.Label(parent, text=" ? ", fg="#2a6f97", cursor="question_arrow", font=("Helvetica", 9, "bold"))
+    Tooltip(lbl, text)
+    return lbl
 
 
 # --------------------------------------------------------------------------
-def main() -> None:
-    st.set_page_config(page_title="Xon Aperiodic Pipeline", page_icon="🧠", layout="wide")
-    st.title("🧠 Xon Aperiodic Pipeline")
-    st.caption("Runs entirely on this computer — no data leaves the machine.")
+class App:
+    def __init__(self, root, config_path: Optional[str]):
+        self.root = root
+        self.cfg = load_config(config_path)
+        self.config_path = config_path
+        self.input_dir: Optional[str] = None
+        self.input_files: List[str] = []
+        default_out = os.environ.get("XON_DEFAULT_OUTPUT") or str(self.cfg.output_dir)
+        self.output_dir = default_out
+        self.log_q: "queue.Queue[str]" = queue.Queue()
+        self.result = None
+        self.vars = {}
+        root.title("Xon Aperiodic Pipeline")
+        root.geometry("880x760")
+        self._build()
+        self._attach_logger()
+        self.root.after(150, self._poll_log)
 
-    cfg_path = _get_config_arg() or str(default_config_path())
-    cfg = load_config(cfg_path)
-    A = cfg.section("artifacts"); ho = cfg.section("high_offender")
-    er = cfg.section("exponent_rejection"); an = cfg.section("analysis")
-    fl = cfg.section("filter"); ep = cfg.section("epoch"); cr = cfg.section("crop")
-    md = cfg.section("metadata"); xd = cfg.section("xdf"); stt = cfg.section("stats")
-    fr = cfg.get("fooof", "freq_range", [1, 40])
-    default_input = os.environ.get("XON_DEFAULT_INPUT") or str(cfg.input_dir)
-    default_output = os.environ.get("XON_DEFAULT_OUTPUT") or str(cfg.output_dir)
+    # ---- UI construction ----
+    def _build(self):
+        nb = ttk.Notebook(self.root)
+        nb.pack(fill="both", expand=True, padx=10, pady=10)
+        self.run_tab = ttk.Frame(nb); nb.add(self.run_tab, text="  Run  ")
+        self.set_tab = ttk.Frame(nb); nb.add(self.set_tab, text="  Settings  ")
+        self._build_run_tab()
+        self._build_settings_tab()
 
-    st.markdown("#### 1. Choose your recordings folder, then press Run. Everything else has "
-                "sensible defaults.")
+    def _drop_zone(self, parent, title, on_drop):
+        f = tk.Frame(parent, bg="#eef4f8", height=90, highlightbackground="#8fb3cc",
+                     highlightthickness=2, bd=0)
+        f.pack(fill="x", pady=(2, 6)); f.pack_propagate(False)
+        msg = ("⬇  Drag your recordings folder (or files) here" if _HAS_DND
+               else "Click a button below to choose your recordings")
+        lbl = tk.Label(f, text=msg, bg="#eef4f8", fg="#33475b", font=("Helvetica", 13))
+        lbl.pack(expand=True)
+        if _HAS_DND:
+            for w in (f, lbl):
+                w.drop_target_register(DND_FILES)
+                w.dnd_bind("<<Drop>>", on_drop)
+        return f
 
-    # ---------------- DATA ----------------
-    input_dir = _folder_field("Folder of recordings", "input", default_input,
-                              "Select the folder that holds your recordings",
-                              "The folder containing your .xdf recordings. Use Browse to pick it — "
-                              "no need to type or copy a path.")
-    output_dir = _folder_field("Where to save results", "output", default_output,
-                               "Select where results should be saved",
-                               "Results, figures and reports are written here.")
-    with st.expander("File matching & speed"):
-        pattern = st.text_input("File pattern", value=str(cfg.get("io", "file_glob", "*.xdf")),
-                                help="Which files count as recordings. Use * if your files have no "
-                                     ".xdf extension. Hidden files are always skipped.")
-        recursive = st.checkbox("Search sub-folders", value=bool(cfg.get("io", "recursive", True)),
-                                help="Also look inside folders within the recordings folder.")
-        n_jobs = st.selectbox("Parallel workers", ["auto", "1", "2", "4", "6", "8"], index=0,
-                              help="How many recordings to process at once. 'auto' is a safe choice; "
-                                   "more is faster but uses more memory.")
+    def _build_run_tab(self):
+        t = self.run_tab
+        tk.Label(t, text="1.  Choose your recordings", font=("Helvetica", 13, "bold")).pack(anchor="w", pady=(4, 0))
+        self._drop_zone(t, "input", self._on_drop_input)
+        row = tk.Frame(t); row.pack(fill="x")
+        tk.Button(row, text="Choose folder…", command=self._choose_folder).pack(side="left")
+        tk.Button(row, text="Choose files…", command=self._choose_files).pack(side="left", padx=6)
+        tk.Label(row, text="or type/paste a path:").pack(side="left", padx=(12, 4))
+        self.input_entry = tk.Entry(row)
+        self.input_entry.pack(side="left", fill="x", expand=True)
+        self.input_entry.bind("<FocusOut>", lambda e: self._set_input_from_entry())
+        self.input_entry.bind("<Return>", lambda e: self._set_input_from_entry())
+        self.input_status = tk.Label(t, text="No recordings chosen yet.", fg="#8a6d3b")
+        self.input_status.pack(anchor="w", pady=(2, 10))
 
-    # ---------------- COMMON SETTINGS ----------------
-    st.markdown("#### 2. Common settings")
-    col1, col2 = st.columns(2)
-    with col1:
-        reference = st.selectbox("Reference", ["ear (device A2 — keep)", "average", "Cz"], index=0,
-                                 help="How the EEG is referenced. The Xon papers keep the device's "
-                                      "ear-clip (A2) reference; 'average' re-references to the mean.")
-        run_ica = st.checkbox("Run ICA", value=bool(A.get("run_ica", False)),
-                              help="Independent Component Analysis. Off by default — it is "
-                                   "underpowered with only 7 channels; epoch rejection is the safety net.")
-        exp_reject = st.checkbox("Reject flat-exponent channels", value=bool(er.get("enabled", True)),
-                                 help="Drop a channel whose final exponent is implausibly flat "
-                                      "(muscle-contaminated). Mentor-endorsed.")
-        exp_thr = st.number_input("Exponent reject threshold", value=float(er.get("threshold", 0.5)),
-                                  step=0.1, help="Channels below this exponent are treated as artifact.")
-    with col2:
-        f_lo = st.number_input("FOOOF fit — low (Hz)", value=float(fr[0]), step=1.0,
-                               help="Lower bound of the 1/f fitting band. 1–40 Hz keeps the fit out "
-                                    "of the muscle band (Donoghue et al. 2020).")
-        f_hi = st.number_input("FOOOF fit — high (Hz)", value=float(fr[1]), step=1.0,
-                               help="Upper bound of the fitting band.")
-        ap_mode = st.selectbox("Aperiodic mode", ["fixed", "knee"],
-                               index=0 if cfg.fooof_settings.get("aperiodic_mode") == "fixed" else 1,
-                               help="'fixed' = straight 1/f line; 'knee' allows a bend at low "
-                                    "frequencies.")
+        tk.Label(t, text="2.  Where to save results", font=("Helvetica", 13, "bold")).pack(anchor="w")
+        self._drop_zone(t, "output", self._on_drop_output)
+        orow = tk.Frame(t); orow.pack(fill="x")
+        tk.Button(orow, text="Choose output folder…", command=self._choose_output).pack(side="left")
+        tk.Label(orow, text="path:").pack(side="left", padx=(12, 4))
+        self.output_entry = tk.Entry(orow)
+        self.output_entry.insert(0, self.output_dir)
+        self.output_entry.pack(side="left", fill="x", expand=True)
+        tk.Label(t, text="(Leave as-is to save inside the program's 'outputs' folder.)",
+                 fg="#7a869a").pack(anchor="w", pady=(2, 10))
 
-    st.markdown("**High-offender channel rejection** (experimental)")
-    hc1, hc2, hc3 = st.columns(3)
-    ho_on = hc1.checkbox("Enable", value=bool(ho.get("enabled", False)),
-                         help="If one electrode causes most of a session's rejected epochs, drop or "
-                              "interpolate just that channel instead of losing whole epochs.")
-    ho_share = hc2.slider("Offender share (%)", 10, 100, int(ho.get("share_threshold", 50)),
-                          disabled=not ho_on, help="A channel above this share of the rejected epochs "
-                                                   "is treated as the culprit.")
-    ho_min = hc3.slider("Only if rejection ≥ (%)", 0, 50, int(ho.get("min_reject_pct", 15)),
-                        disabled=not ho_on, help="Safety gate: only act when the session is already "
-                                                 "noisy, so clean sessions never lose a channel.")
-    ho_action = hc1.selectbox("Action", ["interpolate", "exclude"],
-                              index=0 if ho.get("action") == "interpolate" else 1, disabled=not ho_on,
-                              help="Rebuild the channel from neighbours, or drop it entirely.")
+        self.run_btn = tk.Button(t, text="▶  Run pipeline", bg="#2a6f97", fg="white",
+                                 font=("Helvetica", 14, "bold"), command=self._start_run,
+                                 activebackground="#245a7d", height=2)
+        self.run_btn.pack(fill="x", pady=6)
 
-    # ---------------- ADVANCED ----------------
-    with st.expander("⚙️ Advanced settings (filtering, epoching, thresholds, montage, metadata)"):
-        st.markdown("**Filtering**")
-        a1, a2 = st.columns(2)
-        hp = a1.number_input("High-pass (Hz)", value=float(fl.get("high_pass_hz") or 0.1), step=0.1,
-                             help="Removes slow drift. 0.1 Hz matches the Xon validation protocol.")
-        notch = a2.number_input("Notch (Hz, 0 = off)", value=float(fl.get("notch_freq_hz") or 0.0),
-                                step=10.0, help="Removes mains hum: 60 in the US, 50 in Europe.")
-        st.markdown("**Cropping** (trim setup time; 0 = don't crop that end)")
-        c1, c2, c3 = st.columns(3)
-        crop_start = c1.number_input("Start (s)", value=float(cr.get("start_sec") or 0.0), step=10.0)
-        crop_stop = c2.number_input("Stop (s, 0 = end)", value=float(cr.get("stop_sec") or 0.0), step=10.0)
-        exp_dur = c3.number_input("Expected length (min, 0 = skip)",
-                                  value=float(cr.get("expected_duration_min") or 0.0), step=1.0)
-        st.markdown("**Epoching** (Xon papers: 1 s epochs, 0.1 s overlap)")
-        e1, e2 = st.columns(2)
-        ep_len = e1.number_input("Epoch length (s)", value=float(ep.get("length_sec", 1.0)), step=0.5)
-        ep_ov = e2.number_input("Epoch overlap (s)", value=float(ep.get("overlap_sec", 0.1)), step=0.05)
-        st.markdown("**Artifact thresholds** (Xon papers: amplitude 100 µV, gradient 10 µV/ms)")
-        t1, t2, t3 = st.columns(3)
-        amp_uv = t1.number_input("Amplitude (µV)", value=float(A.get("amplitude_threshold_uv", 100.0)), step=10.0)
-        grad = t2.number_input("Gradient (µV/ms)", value=float(A.get("gradient_threshold_uv_per_ms") or 10.0), step=1.0)
-        flat_uv = t3.number_input("Flat (µV)", value=float(A.get("flat_threshold_uv", 1.0)), step=0.5)
-        z1, z2, z3 = st.columns(3)
-        var_z = z1.number_input("Variance z", value=float(A.get("variance_zscore_threshold") or 3.0), step=0.5)
-        mus_z = z2.number_input("Muscle z", value=float(A.get("muscle_zscore_threshold") or 3.0), step=0.5)
-        mus_hf = z3.number_input("Muscle band (Hz)", value=float(A.get("muscle_hf_hz", 30.0)), step=5.0)
-        st.markdown("**Bad channels & montage**")
-        b1, b2 = st.columns(2)
-        detect_bad = b1.checkbox("Detect bad channels", value=bool(A.get("detect_bad_channels", True)))
-        interp = b2.checkbox("Interpolate bad channels", value=bool(A.get("interpolate_bad_channels", True)))
-        bad_z = b1.number_input("Bad-channel z", value=float(A.get("bad_channel_zscore", 3.0)), step=0.5)
-        interp_method = b2.selectbox("Interpolation", ["average", "spline"],
-                                     index=0 if A.get("interpolation_method") == "average" else 1)
-        montage = st.text_input("Montage", value=str(cfg.montage_name or "standard_1020"),
-                                help="Electrode-position template. 'none' disables it.")
-        st.markdown("**Within-recording analyses**")
-        n1, n2 = st.columns(2)
-        block_on = n1.checkbox("Block analysis (over time)", value=bool(an.get("block_analysis", True)))
-        rel_on = n2.checkbox("Reliability vs recording length", value=bool(an.get("reliability_analysis", True)))
-        st.markdown("**Data units & metadata parsing**")
-        units = st.selectbox("Data units", ["uV", "mV", "V"],
-                             index=["uV", "mV", "V"].index(str(xd.get("data_units", "uV"))),
-                             help="Units the device stored EEG in. Usually microvolts.")
-        pat = md.get("patterns", {})
-        p1, p2, p3 = st.columns(3)
-        pat_p = p1.text_input("Participant pattern", value=str(pat.get("participant", "")),
-                              help="Regular expression to read the participant from the filename.")
-        pat_s = p2.text_input("Session pattern", value=str(pat.get("session", "")))
-        pat_c = p3.text_input("Condition pattern", value=str(pat.get("condition", "")))
-        manifest = st.text_input("Manifest CSV (optional)", value=str(md.get("manifest") or ""),
-                                 help="A CSV mapping each file to participant/session/condition, if "
-                                      "filenames don't carry that info. Overrides the patterns above.")
+        tk.Label(t, text="Progress", font=("Helvetica", 11, "bold")).pack(anchor="w")
+        self.log = tk.Text(t, height=12, wrap="word", bg="#0f1b26", fg="#d5e2ee",
+                           font=("Menlo", 10), state="disabled")
+        self.log.pack(fill="both", expand=True)
 
-    run_stats = st.checkbox("Run cohort statistics + report", value=True)
-    st.caption(f"Advanced defaults live in `{cfg_path}`. Nothing here changes that file.")
+        self.done_row = tk.Frame(t); self.done_row.pack(fill="x", pady=6)
+        self.open_report_btn = tk.Button(self.done_row, text="📄 Open cohort report",
+                                         command=self._open_report, state="disabled")
+        self.open_report_btn.pack(side="left")
+        self.open_gallery_btn = tk.Button(self.done_row, text="🖼 Open diagnostics gallery",
+                                          command=self._open_gallery, state="disabled")
+        self.open_gallery_btn.pack(side="left", padx=6)
+        self.open_folder_btn = tk.Button(self.done_row, text="📁 Open results folder",
+                                         command=self._open_folder, state="disabled")
+        self.open_folder_btn.pack(side="left")
 
-    # ---------------- apply overrides ----------------
-    cfg.data["io"].update(dict(input_dir=input_dir, output_dir=output_dir,
-                               file_glob=pattern, recursive=recursive))
-    cfg.data["performance"]["n_jobs"] = n_jobs
-    cfg.data["artifacts"]["reference"] = (None if reference.startswith("ear")
-                                          else ("average" if reference == "average" else "Cz"))
-    cfg.data["artifacts"].update(dict(
-        run_ica=run_ica, amplitude_threshold_uv=amp_uv,
-        gradient_threshold_uv_per_ms=(grad if grad > 0 else None), flat_threshold_uv=flat_uv,
-        variance_zscore_threshold=var_z, muscle_zscore_threshold=mus_z, muscle_hf_hz=mus_hf,
-        detect_bad_channels=detect_bad, interpolate_bad_channels=interp,
-        bad_channel_zscore=bad_z, interpolation_method=interp_method))
-    cfg.data["exponent_rejection"].update(dict(enabled=exp_reject, threshold=exp_thr))
-    cfg.data["high_offender"].update(dict(enabled=ho_on, share_threshold=float(ho_share),
-                                          min_reject_pct=float(ho_min), action=ho_action))
-    cfg.data["fooof"].update(dict(freq_range=[f_lo, f_hi], aperiodic_mode=ap_mode))
-    cfg.data["filter"].update(dict(high_pass_hz=(hp if hp > 0 else None),
-                                   notch_freq_hz=(notch if notch > 0 else None)))
-    cfg.data["crop"].update(dict(start_sec=(crop_start if crop_start > 0 else None),
-                                 stop_sec=(crop_stop if crop_stop > 0 else None),
-                                 expected_duration_min=(exp_dur if exp_dur > 0 else None)))
-    cfg.data["epoch"].update(dict(length_sec=ep_len, overlap_sec=ep_ov))
-    cfg.data["analysis"].update(dict(block_analysis=block_on, reliability_analysis=rel_on))
-    cfg.data["xdf"]["data_units"] = units
-    cfg.data["montage"]["name"] = montage
-    cfg.data["metadata"]["patterns"] = dict(participant=pat_p or None, session=pat_s or None,
-                                            condition=pat_c or None)
-    cfg.data["metadata"]["manifest"] = manifest or None
-    try:
+    # ---- input/output selection ----
+    def _split(self, data: str) -> List[str]:
+        try:
+            return [clean_path(p) for p in self.root.tk.splitlist(data)]
+        except Exception:
+            return [clean_path(data)]
+
+    def _on_drop_input(self, event):
+        paths = [p for p in self._split(event.data) if p]
+        if not paths:
+            return
+        dirs = [p for p in paths if os.path.isdir(p)]
+        files = [p for p in paths if os.path.isfile(p)]
+        if len(dirs) == 1 and not files:
+            self._use_folder(dirs[0])
+        elif files:
+            self._use_files(files)
+        elif dirs:
+            self._use_folder(dirs[0])
+
+    def _on_drop_output(self, event):
+        paths = [p for p in self._split(event.data) if p and os.path.isdir(p)]
+        if paths:
+            self.output_dir = paths[0]
+            self.output_entry.delete(0, "end"); self.output_entry.insert(0, paths[0])
+
+    def _choose_folder(self):
+        d = filedialog.askdirectory(title="Select the folder with your recordings")
+        if d:
+            self._use_folder(d)
+
+    def _choose_files(self):
+        fs = filedialog.askopenfilenames(title="Select your recording files")
+        if fs:
+            self._use_files(list(fs))
+
+    def _choose_output(self):
+        d = filedialog.askdirectory(title="Select where to save results")
+        if d:
+            self.output_dir = d
+            self.output_entry.delete(0, "end"); self.output_entry.insert(0, d)
+
+    def _set_input_from_entry(self):
+        p = clean_path(self.input_entry.get())
+        if not p:
+            return
+        if os.path.isdir(p):
+            self._use_folder(p)
+        elif os.path.isfile(p):
+            self._use_files([p])
+
+    def _use_folder(self, d: str):
+        self.input_dir, self.input_files = d, []
+        self.input_entry.delete(0, "end"); self.input_entry.insert(0, d)
+        self.input_status.config(text=f"✓ Folder selected: {d}", fg="#2a7d4f")
+
+    def _use_files(self, files: List[str]):
+        self.input_files, self.input_dir = files, None
+        self.input_entry.delete(0, "end")
+        self.input_entry.insert(0, f"{len(files)} file(s) selected")
+        self.input_status.config(text=f"✓ {len(files)} file(s) selected", fg="#2a7d4f")
+
+    # ---- settings tab ----
+    def _build_settings_tab(self):
+        canvas = tk.Canvas(self.set_tab, highlightthickness=0)
+        sb = ttk.Scrollbar(self.set_tab, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=sb.set)
+        canvas.pack(side="left", fill="both", expand=True); sb.pack(side="right", fill="y")
+
+        A = self.cfg.section("artifacts"); ho = self.cfg.section("high_offender")
+        er = self.cfg.section("exponent_rejection"); an = self.cfg.section("analysis")
+        fl = self.cfg.section("filter"); ep = self.cfg.section("epoch"); cr = self.cfg.section("crop")
+        xd = self.cfg.section("xdf"); fr = self.cfg.get("fooof", "freq_range", [1, 40])
+
+        def group(title):
+            lf = ttk.LabelFrame(inner, text=title)
+            lf.pack(fill="x", padx=10, pady=8, ipady=4)
+            return lf
+
+        def row(parent, label, help_text):
+            r = tk.Frame(parent); r.pack(fill="x", padx=8, pady=3)
+            tk.Label(r, text=label, width=26, anchor="w").pack(side="left")
+            _help(r, help_text).pack(side="right")
+            return r
+
+        def combo(parent, key, label, options, current, help_text):
+            r = row(parent, label, help_text)
+            v = tk.StringVar(value=str(current)); self.vars[key] = ("str", v)
+            ttk.Combobox(r, textvariable=v, values=options, state="readonly", width=18).pack(side="left")
+
+        def check(parent, key, label, current, help_text):
+            r = row(parent, label, help_text)
+            v = tk.BooleanVar(value=bool(current)); self.vars[key] = ("bool", v)
+            tk.Checkbutton(r, variable=v).pack(side="left")
+
+        def num(parent, key, label, current, help_text):
+            r = row(parent, label, help_text)
+            v = tk.StringVar(value=str(current if current is not None else "")); self.vars[key] = ("num", v)
+            tk.Entry(r, textvariable=v, width=12).pack(side="left")
+
+        def text(parent, key, label, current, help_text):
+            r = row(parent, label, help_text)
+            v = tk.StringVar(value=str(current if current is not None else "")); self.vars[key] = ("text", v)
+            tk.Entry(r, textvariable=v, width=22).pack(side="left")
+
+        g = group("Basics")
+        combo(g, "performance.n_jobs", "Parallel workers", ["auto", "1", "2", "4", "6", "8"],
+              self.cfg.get("performance", "n_jobs", "auto"),
+              "How many recordings to process at once. 'auto' is safe; more is faster, more memory.")
+        text(g, "io.file_glob", "File pattern", self.cfg.get("io", "file_glob", "*"),
+             "Which files count as recordings. '*' matches everything (Xon files often have no "
+             "extension); non-data files are skipped automatically.")
+        check(g, "io.recursive", "Search sub-folders", self.cfg.get("io", "recursive", True),
+              "Also look inside folders within the recordings folder.")
+
+        g = group("Artifact rejection")
+        cur_ref = "ear (device A2 — keep)" if self.cfg.reference is None else str(self.cfg.reference)
+        combo(g, "artifacts.reference", "Reference", ["ear (device A2 — keep)", "average", "Cz"],
+              cur_ref, "How the EEG is referenced. The Xon papers keep the ear-clip (A2) reference.")
+        check(g, "artifacts.run_ica", "Run ICA", A.get("run_ica", False),
+              "Off by default — underpowered at 7 channels; epoch rejection is the safety net.")
+        num(g, "artifacts.amplitude_threshold_uv", "Amplitude reject (µV)",
+            A.get("amplitude_threshold_uv", 100.0), "Drop epochs whose peak-to-peak exceeds this.")
+        num(g, "artifacts.gradient_threshold_uv_per_ms", "Gradient reject (µV/ms)",
+            A.get("gradient_threshold_uv_per_ms", 10.0), "Drop epochs with a steeper sample-to-sample jump.")
+        num(g, "artifacts.variance_zscore_threshold", "Variance z", A.get("variance_zscore_threshold", 3.0),
+            "Reject epochs that are variance outliers (blank to disable).")
+        num(g, "artifacts.muscle_zscore_threshold", "Muscle z", A.get("muscle_zscore_threshold", 3.0),
+            "Reject epochs with excess high-frequency (muscle) power (blank to disable).")
+
+        g = group("Channel rejection")
+        check(g, "exponent_rejection.enabled", "Reject flat-exponent channels", er.get("enabled", True),
+              "Drop a channel whose final exponent is implausibly flat (muscle). Mentor-endorsed.")
+        num(g, "exponent_rejection.threshold", "Exponent threshold", er.get("threshold", 0.5),
+            "Channels below this exponent are treated as artifact.")
+        check(g, "high_offender.enabled", "High-offender channel rejection", ho.get("enabled", False),
+              "If one channel causes most of a session's rejections, drop/interpolate just it.")
+        num(g, "high_offender.share_threshold", "Offender share (%)", ho.get("share_threshold", 50.0),
+            "A channel above this share of rejected epochs is the culprit.")
+        num(g, "high_offender.min_reject_pct", "Only if rejection ≥ (%)", ho.get("min_reject_pct", 15.0),
+            "Safety gate: only act when the session is already noisy.")
+        combo(g, "high_offender.action", "Action", ["interpolate", "exclude"],
+              ho.get("action", "interpolate"), "Rebuild from neighbours, or drop entirely.")
+
+        g = group("Spectrum (FOOOF)")
+        num(g, "fooof.freq_range.0", "Fit low (Hz)", fr[0], "Lower bound of the 1/f fit band (Donoghue 2020).")
+        num(g, "fooof.freq_range.1", "Fit high (Hz)", fr[1], "Upper bound of the fit band.")
+        combo(g, "fooof.aperiodic_mode", "Aperiodic mode", ["fixed", "knee"],
+              self.cfg.fooof_settings.get("aperiodic_mode", "fixed"), "'fixed' = straight line; 'knee' = allow a bend.")
+
+        g = group("Advanced — filtering, epoching, montage, analyses")
+        num(g, "filter.high_pass_hz", "High-pass (Hz)", fl.get("high_pass_hz", 0.1), "Removes slow drift.")
+        num(g, "filter.notch_freq_hz", "Notch (Hz, blank = off)", fl.get("notch_freq_hz", 60.0), "Mains hum: 60 US / 50 EU.")
+        num(g, "crop.start_sec", "Crop start (s, blank = none)", cr.get("start_sec"), "Trim setup time at the start.")
+        num(g, "crop.stop_sec", "Crop stop (s, blank = none)", cr.get("stop_sec"), "Trim after this time.")
+        num(g, "epoch.length_sec", "Epoch length (s)", ep.get("length_sec", 1.0), "Xon papers: 1 s.")
+        num(g, "epoch.overlap_sec", "Epoch overlap (s)", ep.get("overlap_sec", 0.1), "Xon papers: 0.1 s.")
+        check(g, "artifacts.detect_bad_channels", "Detect bad channels", A.get("detect_bad_channels", True), "Flag dead/noisy channels.")
+        check(g, "artifacts.interpolate_bad_channels", "Interpolate bad channels", A.get("interpolate_bad_channels", True), "Rebuild flagged channels; excluded from the average.")
+        combo(g, "artifacts.interpolation_method", "Interpolation", ["average", "spline"], A.get("interpolation_method", "average"), "Average of good channels (robust at 7 ch) or spherical spline.")
+        text(g, "montage.name", "Montage", self.cfg.montage_name or "standard_1020", "Electrode-position template; 'none' disables.")
+        combo(g, "xdf.data_units", "Data units", ["uV", "mV", "V"], xd.get("data_units", "uV"), "Units the device stored EEG in.")
+        check(g, "analysis.block_analysis", "Block analysis (over time)", an.get("block_analysis", True), "Fit each 5-min block to see drift.")
+        check(g, "analysis.reliability_analysis", "Reliability vs recording length", an.get("reliability_analysis", True), "The 'how few minutes are enough' analysis.")
+
+    # ---- assemble config from settings ----
+    def _apply_settings(self):
+        cfg = self.cfg
+        def setpath(path, value):
+            keys = path.split("."); node = cfg.data
+            for k in keys[:-1]:
+                node = node.setdefault(k, {})
+            node[keys[-1]] = value
+        for key, (kind, var) in self.vars.items():
+            raw = var.get()
+            if kind == "bool":
+                val = bool(raw)
+            elif kind == "num":
+                val = None if str(raw).strip() == "" else float(raw)
+            else:
+                val = raw
+            if key == "artifacts.reference":
+                val = None if str(raw).startswith("ear") else raw
+            if key.startswith("fooof.freq_range."):
+                idx = int(key.split(".")[-1])
+                fr = list(cfg.get("fooof", "freq_range", [1, 40]))
+                fr[idx] = float(raw); cfg.data["fooof"]["freq_range"] = fr
+                continue
+            if key == "montage.name":
+                cfg.data.setdefault("montage", {})["name"] = raw
+                continue
+            setpath(key, val)
+        cfg.data["io"]["input_dir"] = self.input_dir or cfg.get("io", "input_dir")
+        cfg.data["io"]["output_dir"] = clean_path(self.output_entry.get()) or self.output_dir
         cfg.validate()
-    except Exception as exc:
-        st.error(f"Invalid settings: {exc}")
-        st.stop()
+        return cfg
 
-    # ---------------- preview + run ----------------
-    try:
-        files = find_xdf_files(cfg.input_dir, pattern=pattern, recursive=recursive)
-        st.success(f"Found {len(files)} recording(s) in `{cfg.input_dir}`.")
-        with st.expander("Files that will be processed"):
-            st.write([f.name for f in files])
-    except Exception as exc:
-        st.warning(f"No recordings found yet — check the folder above. ({exc})")
-        files = []
+    # ---- run ----
+    def _start_run(self):
+        if not self.input_dir and not self.input_files:
+            messagebox.showwarning("No recordings", "Please choose a recordings folder or files first.")
+            return
+        try:
+            cfg = self._apply_settings()
+        except Exception as exc:
+            messagebox.showerror("Invalid settings", str(exc)); return
+        self.run_btn.config(state="disabled", text="Running…")
+        for b in (self.open_report_btn, self.open_gallery_btn, self.open_folder_btn):
+            b.config(state="disabled")
+        self._log_clear()
+        files = [Path(f) for f in self.input_files] if self.input_files else None
+        threading.Thread(target=self._run_worker, args=(cfg, files), daemon=True).start()
 
-    if st.button("▶ Run pipeline", type="primary", disabled=not files):
-        with st.spinner("Processing… you'll see results here when it finishes."):
-            try:
-                outputs = run_batch(cfg=cfg, run_stats=run_stats)
-            except Exception as exc:
-                st.error(f"Pipeline failed: {exc}")
-                st.stop()
-        st.balloons()
-        st.success("Done!")
-        _show_results(outputs, cfg)
+    def _run_worker(self, cfg, files):
+        from .batch import run_batch
+        try:
+            self.result = run_batch(cfg=cfg, input_files=files)
+            self.log_q.put("__DONE__")
+        except Exception as exc:
+            self.log_q.put(f"\nERROR: {exc}")
+            self.log_q.put("__FAILED__")
+
+    # ---- logging bridge ----
+    def _attach_logger(self):
+        app = self
+
+        class H(logging.Handler):
+            def __init__(self):
+                super().__init__(); self._keep = True
+            def emit(self, record):
+                app.log_q.put(self.format(record))
+        h = H(); h.setFormatter(logging.Formatter("%(message)s"))
+        lg = get_logger(); lg.setLevel(logging.INFO); lg.addHandler(h)
+
+    def _poll_log(self):
+        try:
+            while True:
+                msg = self.log_q.get_nowait()
+                if msg == "__DONE__":
+                    self._finish(ok=True)
+                elif msg == "__FAILED__":
+                    self._finish(ok=False)
+                else:
+                    self._log_write(msg)
+        except queue.Empty:
+            pass
+        self.root.after(150, self._poll_log)
+
+    def _finish(self, ok: bool):
+        self.run_btn.config(state="normal", text="▶  Run pipeline")
+        if ok:
+            self._log_write("\n✓ Done.")
+            for b in (self.open_report_btn, self.open_gallery_btn, self.open_folder_btn):
+                b.config(state="normal")
+            # auto-open the report
+            self._open_report()
+        else:
+            messagebox.showerror("Pipeline failed", "See the progress log for details.")
+
+    def _log_clear(self):
+        self.log.config(state="normal"); self.log.delete("1.0", "end"); self.log.config(state="disabled")
+
+    def _log_write(self, msg: str):
+        self.log.config(state="normal"); self.log.insert("end", msg + "\n")
+        self.log.see("end"); self.log.config(state="disabled")
+
+    # ---- open results ----
+    def _out(self, name):
+        outputs = self.result or {}
+        p = outputs.get(name)
+        if p and Path(p).exists():
+            return p
+        base = Path(self.output_entry.get() or self.output_dir)
+        cand = base / ({"cohort_report": "cohort_report.html", "gallery": "gallery.html"}.get(name, ""))
+        return str(cand) if cand.exists() else None
+
+    def _open_report(self):
+        p = self._out("cohort_report")
+        if p:
+            webbrowser.open(Path(p).as_uri())
+
+    def _open_gallery(self):
+        p = self._out("gallery")
+        if p:
+            webbrowser.open(Path(p).as_uri())
+
+    def _open_folder(self):
+        base = self.output_entry.get() or self.output_dir
+        if os.path.isdir(base):
+            if os.name == "nt":
+                os.startfile(base)              # noqa: S606
+            else:
+                import subprocess
+                subprocess.run(["open" if os.uname().sysname == "Darwin" else "xdg-open", base])
 
 
-def _show_results(outputs: dict, cfg) -> None:
-    master_csv = outputs.get("master_csv")
-    if master_csv and Path(master_csv).exists():
-        df = pd.read_csv(master_csv)
-        st.subheader("Results (one row per recording)")
-        lead = [c for c in ["subject_id", "participant", "session", "condition",
-                            "AVERAGE_exponent", "AVERAGE_r_squared", "pct_epochs_rejected",
-                            "high_offender_flagged_channels", "status"] if c in df.columns]
-        st.dataframe(df[lead] if lead else df, use_container_width=True)
-        st.download_button("Download full results (CSV)", df.to_csv(index=False),
-                           file_name="master_everything.csv")
-    report = outputs.get("cohort_report")
-    if report and Path(report).exists():
-        st.subheader("Cohort report")
-        st.components.v1.html(Path(report).read_text(), height=800, scrolling=True)
-    figs = [v for k, v in outputs.items() if k.startswith("fig_") and Path(str(v)).exists()]
-    if figs:
-        st.subheader("Figures")
-        cols = st.columns(2)
-        for i, fig in enumerate(figs):
-            cols[i % 2].image(fig, use_container_width=True)
-    st.info(f"All files were written to: `{cfg.output_dir}`")
+def main(config_path: Optional[str] = None) -> int:
+    root = TkinterDnD.Tk() if _HAS_DND else tk.Tk()
+    App(root, config_path)
+    root.mainloop()
+    return 0
 
 
-main()
+if __name__ == "__main__":
+    raise SystemExit(main())

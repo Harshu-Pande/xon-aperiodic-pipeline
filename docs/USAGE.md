@@ -8,7 +8,7 @@ Everything the pipeline does, and every file it produces.
 |---|---|
 | The simplest thing, no setup | `./run.sh` (macOS/Linux) or `run.bat` (Windows) |
 | A real installed command | `pip install .` then `xon-pipeline …` |
-| A clickable interface | `pip install ".[gui]"` then `xon-pipeline gui` |
+| A clickable interface | `pip install .` then `xon-pipeline gui` (add `".[gui]"` for drag-and-drop) |
 | No install at all | `pip install -r requirements.txt` then `python -m xon_aperiodic.cli …` |
 
 The launcher builds a private virtual environment in `.venv` on first run, so nothing is
@@ -23,7 +23,8 @@ xon-pipeline run --input ONE_FILE.xdf
 xon-pipeline run --set section.key=value ...   # override any config setting
 xon-pipeline run --no-stats          # skip cohort statistics/report
 xon-pipeline streams FILE.xdf        # list the streams in a file (if auto-detect misfires)
-xon-pipeline gui                     # launch the offline GUI
+xon-pipeline gui                     # native desktop GUI (drag-and-drop)
+xon-pipeline webgui                  # Streamlit web GUI (alternative)
 xon-pipeline config                  # print the fully-resolved configuration
 ```
 

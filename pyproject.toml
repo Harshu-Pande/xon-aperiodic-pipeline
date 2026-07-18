@@ -25,7 +25,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-gui = ["streamlit>=1.28"]
+gui = ["tkinterdnd2>=0.3"]     # optional drag-and-drop for the native desktop GUI
+web = ["streamlit>=1.28"]      # optional Streamlit web GUI (xon-pipeline webgui)
 dev = ["pytest>=7.0"]
 
 [project.scripts]

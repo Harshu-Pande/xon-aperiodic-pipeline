@@ -1,0 +1,26 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>QC report - P001_S2_rest</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:2rem auto;max-width:1000px;color:#1d3557;padding:0 1rem}
+h1{font-size:1.5rem} h2{font-size:1.1rem;margin-top:1.6rem;border-bottom:2px solid #eee;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:6px 0;font-size:.9rem}
+td{border:1px solid #e6e6e6;padding:5px 8px} td.k{background:#f7f9fb;font-weight:600;width:34%}
+th{background:#f0f4f8;border:1px solid #e6e6e6;padding:5px 8px;text-align:left;font-size:.85rem}
+.verdict{padding:10px 14px;border-radius:8px;color:#fff;font-weight:600;background:#2a9d8f}
+.small{color:#6b7c93;font-size:.8rem}
+</style></head><body>
+<h1>Xon aperiodic QC report</h1>
+<p class='small'>Subject <b>P001_S2_rest</b> &middot; auto-generated per recording. Everything below is derived from this single .xdf file.</p>
+<p class='verdict'>Looks clean.</p>
+<h2>Identity</h2><table><tr><td class='k'>Participant</td><td>P001</td></tr><tr><td class='k'>Session</td><td>2</td></tr><tr><td class='k'>Condition</td><td>rest</td></tr><tr><td class='k'>Subject id</td><td>P001_S2_rest</td></tr><tr><td class='k'>Source file</td><td>P001_S002_rest.xdf</td></tr><tr><td class='k'>Original duration (min)</td><td>1.9999</td></tr><tr><td class='k'>Clean minutes analysed</td><td>1.9667</td></tr></table>
+<h2>Headline result</h2><table><tr><td class='k'>AVERAGE aperiodic exponent</td><td>0.863268</td></tr><tr><td class='k'>Exponent SD across channels</td><td>0.044729</td></tr><tr><td class='k'>Average fit r^2</td><td>0.991411</td></tr><tr><td class='k'>Channels averaged</td><td>7</td></tr></table>
+<h2>Diagnostic figure</h2><img src='diagnostic_P001_S2_rest.png' style='max-width:100%;border:1px solid #ddd;border-radius:6px;margin:8px 0'>
+<h2>Exponent vs recording length</h2><img src='durationcurve_P001_S2_rest.png' style='max-width:100%;border:1px solid #ddd;border-radius:6px;margin:8px 0'>
+<h2>Exponent over time (blocks)</h2>
+<h2>Epoch quality control</h2><table><tr><td class='k'>epochs_before_qc</td><td>133</td></tr><tr><td class='k'>epochs_dropped_amp_flat</td><td>0</td></tr><tr><td class='k'>epochs_dropped_gradient</td><td>3</td></tr><tr><td class='k'>epochs_flagged_variance</td><td>10</td></tr><tr><td class='k'>epochs_flagged_muscle</td><td>2</td></tr><tr><td class='k'>epochs_final_clean</td><td>118</td></tr><tr><td class='k'>pct_epochs_rejected</td><td>11.28</td></tr><tr><td class='k'>pct_epochs_kept</td><td>88.72</td></tr></table>
+<h2>Preprocessing decisions</h2><table><tr><td class='k'>High-pass (Hz)</td><td>0.1</td></tr><tr><td class='k'>Notch (Hz)</td><td>60.0</td></tr><tr><td class='k'>Montage</td><td>standard_1020</td></tr><tr><td class='k'>Reference</td><td>ear</td></tr><tr><td class='k'>Interpolation</td><td>average</td></tr><tr><td class='k'>FOOOF range (Hz)</td><td>1-40</td></tr><tr><td class='k'>Aperiodic mode</td><td>fixed</td></tr><tr><td class='k'>Bad channels</td><td>none</td></tr><tr><td class='k'>Interpolated</td><td>none</td></tr><tr><td class='k'>Excluded</td><td>none</td></tr><tr><td class='k'>Exponent-flagged</td><td>none</td></tr><tr><td class='k'>Worst offender channel</td><td>P4 (33.33% of rejections)</td></tr></table>
+<h2>Per-channel detail</h2>
+<table><tr><th>channel</th><th>exponent</th><th>r^2</th><th>log-var</th><th>reject hits</th><th>% of rejections</th><th>interp?</th><th>excluded?</th></tr><tr><td class='k'>F3</td><td>0.897635</td><td>0.993043</td><td>-22.5835</td><td>2</td><td>13.33%</td><td></td><td></td></tr><tr><td class='k'>F4</td><td>0.915544</td><td>0.991671</td><td>-22.6521</td><td>1</td><td>6.67%</td><td></td><td></td></tr><tr><td class='k'>C3</td><td>0.871186</td><td>0.990769</td><td>-22.6595</td><td>0</td><td>0.0%</td><td></td><td></td></tr><tr><td class='k'>C4</td><td>0.823242</td><td>0.993791</td><td>-22.6533</td><td>2</td><td>13.33%</td><td></td><td></td></tr><tr><td class='k'>Cz</td><td>0.880047</td><td>0.992241</td><td>-22.5978</td><td>3</td><td>20.0%</td><td></td><td></td></tr><tr><td class='k'>P3</td><td>0.880536</td><td>0.988391</td><td>-22.5933</td><td>2</td><td>13.33%</td><td></td><td></td></tr><tr><td class='k'>P4</td><td>0.774687</td><td>0.98997</td><td>-22.6292</td><td>5</td><td>33.33%</td><td></td><td></td></tr></table>
+<p class='small'>Interpolated channels are reported but excluded from the AVERAGE exponent (a reconstructed channel is a blend of its neighbours, not an independent measurement).</p>
+<p class='small'>Methods: aperiodic fit via FOOOF/specparam (Donoghue et al. 2020, Nat Neurosci); acquisition/rejection parameters per the Boere &amp; Krigolson Xon protocol; preprocessing in MNE-Python. See docs/METHODS.md.</p>
+</body></html>

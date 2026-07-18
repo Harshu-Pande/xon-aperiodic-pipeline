@@ -9,8 +9,8 @@ set "XON_DEFAULT_INPUT=%USERPROFILE%\Downloads\EEG"
 set "XON_DEFAULT_OUTPUT=%USERPROFILE%\Desktop\Xon results"
 echo ----------------------------------------------------------------
 echo   Starting the Xon pipeline.
-echo   The FIRST time, setup can take 1-2 minutes. Please wait...
-echo   A page will open in your web browser when it's ready.
+echo   The FIRST time, setup can take about a minute. Please wait...
+echo   An app window will open when it's ready.
 echo   (Keep this window open while you use the app.)
 echo ----------------------------------------------------------------
 echo.

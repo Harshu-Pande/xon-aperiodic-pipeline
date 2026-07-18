@@ -42,10 +42,10 @@ Open **Terminal** (⌘-Space → type `Terminal`), paste this one line, and pres
 cd ~/Desktop && curl -L https://github.com/Harshu-Pande/xon-aperiodic-pipeline/archive/refs/heads/main.zip -o xon.zip && unzip -oq xon.zip && cd xon-aperiodic-pipeline-main && chmod +x run.sh && ./run.sh gui
 ```
 
-It downloads the program, sets it up, and opens the app in your browser. After that, use
-the app: click **📁 Browse**, pick your recordings folder, press **▶ Run**. On later days,
-double-click **`Start Here (Mac).command`** in the folder — no security prompt appears
-because this method never quarantines the files.
+It downloads the program, sets it up, and opens a small app window. **Drag your recordings
+folder onto it** (or click Choose folder), then press **▶ Run**. On later days, double-click
+**`Start Here (Mac).command`** in the folder — no security prompt appears because this
+method never quarantines the files.
 
 Prefer to download-and-double-click instead, or on Windows? See the step-by-step guide,
 which also covers the one-time macOS security prompt (and how to clear it without an admin
@@ -60,7 +60,8 @@ Install as a package and use the command line:
 ```bash
 pip install .
 xon-pipeline run --input-dir /path/to/xdf_folder --output results
-xon-pipeline gui                              # the offline GUI
+xon-pipeline gui                              # native desktop GUI (drag-and-drop)
+xon-pipeline webgui                           # Streamlit web GUI (alternative)
 xon-pipeline streams FILE.xdf                 # inspect a file's streams
 ```
 

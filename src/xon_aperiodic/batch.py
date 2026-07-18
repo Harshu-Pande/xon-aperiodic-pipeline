@@ -18,16 +18,23 @@ from .io_xdf import safe_name
 from .pipeline import run_pipeline, PipelineResult
 
 
-def find_xdf_files(input_dir: str | Path, pattern: str = "*.xdf", recursive: bool = False) -> List[Path]:
+# Extensions that are clearly not EEG recordings, skipped when the pattern is broad ("*").
+_NON_DATA_EXTS = {".csv", ".tsv", ".txt", ".md", ".html", ".htm", ".png", ".jpg", ".jpeg",
+                  ".gif", ".pdf", ".json", ".yaml", ".yml", ".log", ".zip", ".gz", ".xlsx",
+                  ".xls", ".docx", ".pptx", ".py", ".ipynb", ".ds_store"}
+
+
+def find_xdf_files(input_dir: str | Path, pattern: str = "*", recursive: bool = False) -> List[Path]:
     input_path = Path(input_dir)
     if not input_path.exists():
         raise FileNotFoundError(f"Input folder does not exist: {input_path}")
     if not input_path.is_dir():
         raise NotADirectoryError(f"input_dir must be a folder: {input_path}")
     files = sorted(input_path.rglob(pattern) if recursive else input_path.glob(pattern))
-    files = [f for f in files if f.is_file() and not f.name.startswith(".")]
+    files = [f for f in files if f.is_file() and not f.name.startswith(".")
+             and f.suffix.lower() not in _NON_DATA_EXTS]
     if not files:
-        raise FileNotFoundError(f"No files found in {input_path} with pattern {pattern!r}.")
+        raise FileNotFoundError(f"No recordings found in {input_path} with pattern {pattern!r}.")
     return files
 
 

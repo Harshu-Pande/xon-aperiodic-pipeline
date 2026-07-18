@@ -113,18 +113,31 @@ def _silence_streamlit_prompt() -> None:
 
 
 def cmd_gui(args) -> int:
+    """Launch the native desktop GUI (fast, no web server)."""
+    try:
+        from . import gui
+    except Exception as exc:
+        print(f"Could not start the desktop GUI ({exc}).\n"
+              "If Tkinter is unavailable, try the web GUI:  xon-pipeline webgui", file=sys.stderr)
+        return 1
+    return gui.main(config_path=args.config)
+
+
+def cmd_webgui(args) -> int:
+    """Launch the Streamlit web GUI (fallback / alternative to the desktop GUI)."""
     try:
         import streamlit  # noqa: F401
     except ImportError:
-        print("The GUI needs streamlit. Install it with:\n  pip install streamlit\n"
-              "then re-run:  xon-pipeline gui", file=sys.stderr)
+        print("The web GUI needs streamlit. Install it with:\n  pip install streamlit\n"
+              "then re-run:  xon-pipeline webgui\n(Or just use the desktop GUI: xon-pipeline gui)",
+              file=sys.stderr)
         return 1
     import subprocess
     _silence_streamlit_prompt()
     env = dict(os.environ)
     env["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
     env["STREAMLIT_GLOBAL_SHOW_WARNING_ON_DIRECT_EXECUTION"] = "false"
-    gui_path = Path(__file__).resolve().parent / "gui.py"
+    gui_path = Path(__file__).resolve().parent / "gui_web.py"
     cmd = [sys.executable, "-m", "streamlit", "run", str(gui_path),
            "--browser.gatherUsageStats", "false", "--server.headless", "false"]
     if args.config:
@@ -163,8 +176,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("file", help="Path to an .xdf file.")
     s.set_defaults(func=cmd_streams)
 
-    g = sub.add_parser("gui", help="Launch the offline drag-and-drop GUI.")
+    g = sub.add_parser("gui", help="Launch the native desktop drag-and-drop GUI.")
     g.set_defaults(func=cmd_gui)
+
+    w = sub.add_parser("webgui", help="Launch the Streamlit web GUI (alternative).")
+    w.set_defaults(func=cmd_webgui)
 
     c = sub.add_parser("config", help="Print the resolved configuration and exit.")
     c.add_argument("--set", action="append", metavar="section.key=value")

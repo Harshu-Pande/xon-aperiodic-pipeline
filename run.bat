@@ -17,22 +17,19 @@ if errorlevel 1 (
 )
 
 if not exist ".venv" (
-  echo First run: creating a virtual environment in .venv ^(this happens once^)...
-  python -m venv .venv
+  echo First run: setting up ^(this happens once^)...
+  python -m venv --system-site-packages .venv
   call .venv\Scripts\activate.bat
-  python -m pip install --upgrade pip >nul
-  echo Installing the pipeline and its dependencies...
+  python -m pip install --upgrade pip >nul 2>nul
+  echo Installing the pipeline ^(only what's missing^)...
   python -m pip install -e . >nul
 ) else (
   call .venv\Scripts\activate.bat
 )
 
-REM The GUI needs streamlit (optional extra); install on first use so run.bat gui just works.
+REM Optional drag-and-drop support for the desktop GUI (tiny). GUI works without it too.
 if "%~1"=="gui" (
-  python -c "import streamlit" 2>nul || (
-    echo Installing the GUI ^(streamlit^), one time...
-    python -m pip install streamlit >nul
-  )
+  python -c "import tkinterdnd2" 2>nul || python -m pip install tkinterdnd2 >nul 2>nul
 )
 
 if "%~1"=="" (

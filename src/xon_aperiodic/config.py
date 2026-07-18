@@ -24,7 +24,7 @@ DEFAULTS: Dict[str, Any] = {
     "io": {
         "input_dir": "data",
         "recursive": True,
-        "file_glob": "*.xdf",
+        "file_glob": "*",          # Xon exports often have no .xdf extension; non-data files are skipped
         "output_dir": "outputs",
     },
     "metadata": {

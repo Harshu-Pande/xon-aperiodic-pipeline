@@ -150,6 +150,10 @@ questions: can the Xon headset recover the aperiodic exponent accurately, is it 
 across a person's repeat sessions, does it survive a noisy condition, and how few minutes
 of clean data are needed.</p>
 
+<p style='margin:14px 0'><a href='gallery.html' style='display:inline-block;background:#2a6f97;
+color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600'>
+&#128444; Open the diagnostics gallery &mdash; every recording on one page &rarr;</a></p>
+
 <h2>Key takeaways</h2>
 {_interpretation(st)}
 

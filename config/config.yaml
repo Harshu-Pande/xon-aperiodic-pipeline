@@ -22,9 +22,10 @@ io:
   input_dir: "data"
   # Process sub-folders of input_dir too (e.g. one folder per participant).
   recursive: true
-  # Which files to treat as recordings. "*.xdf" is normal. Use "*" if your Xon
-  # exports have no extension (hidden dotfiles like .DS_Store are always skipped).
-  file_glob: "*.xdf"
+  # Which files to treat as recordings. "*" matches everything (Xon exports often have
+  # no .xdf extension); hidden files and obvious non-data files (.csv/.png/.txt/...) are
+  # always skipped. Set to "*.xdf" if you only want files with that exact extension.
+  file_glob: "*"
   # Where results/figures/reports are written (also git-ignored).
   output_dir: "outputs"
 

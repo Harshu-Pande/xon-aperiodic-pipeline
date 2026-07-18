@@ -25,25 +25,25 @@ if ! command -v "$PY" >/dev/null 2>&1; then
 fi
 
 if [ ! -d ".venv" ]; then
-  echo "First run: creating a virtual environment in .venv (this happens once)…"
-  "$PY" -m venv .venv
+  echo "First run: setting up (this happens once)…"
+  # --system-site-packages reuses any scientific packages already installed (e.g. a conda
+  # base with numpy/scipy/matplotlib/pandas), so setup installs only the few missing pieces
+  # instead of rebuilding the whole stack. Much faster.
+  "$PY" -m venv --system-site-packages .venv
   # shellcheck disable=SC1091
   source .venv/bin/activate
-  python -m pip install --upgrade pip >/dev/null
-  echo "Installing the pipeline and its dependencies…"
+  python -m pip install --upgrade pip >/dev/null 2>&1 || true
+  echo "Installing the pipeline (only what's missing)…"
   python -m pip install -e . >/dev/null
 else
   # shellcheck disable=SC1091
   source .venv/bin/activate
 fi
 
-# The GUI needs streamlit (an optional extra); install it on first use so `./run.sh gui`
-# just works without anyone having to know about extras.
+# The desktop GUI uses optional drag-and-drop support (tiny, fast). Install once; the GUI
+# works without it too (falls back to Browse buttons).
 if [ "${1:-}" = "gui" ]; then
-  python -c "import streamlit" >/dev/null 2>&1 || {
-    echo "Installing the GUI (streamlit), one time…"
-    python -m pip install streamlit >/dev/null
-  }
+  python -c "import tkinterdnd2" >/dev/null 2>&1 || python -m pip install tkinterdnd2 >/dev/null 2>&1 || true
 fi
 
 if [ "$#" -eq 0 ]; then

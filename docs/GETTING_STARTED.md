@@ -48,13 +48,15 @@ instead — it never triggers the warning.
 
 1. Put your recordings in a folder (anywhere — they can be named anything, and it's fine
    if they don't end in `.xdf`).
-2. When the app opens in your browser, click **📁 Browse** next to "Folder of recordings"
-   and select that folder. (No need to type or paste a path — but if you prefer to, the
-   box accepts a pasted path and cleans up quotes and spaces automatically.)
-3. The common settings have sensible defaults; adjust anything you like, or open
-   **Advanced settings** for the full set. Every field has a small **?** with an explanation.
-4. Press **▶ Run pipeline**. Results, figures, and a report appear on the page and are
-   saved to your output folder.
+2. A small app window opens. **Drag your recordings folder (or the individual files) onto
+   the drop zone** at the top. Prefer buttons? Use **Choose folder…** / **Choose files…**,
+   or type/paste a path — it cleans up quotes and spaces automatically.
+3. Leave the output as-is to save inside the program's `outputs` folder, or drag/choose a
+   different folder.
+4. The defaults are sensible. To change anything, open the **Settings** tab — everything is
+   there, each field with a hover **?** explanation.
+5. Press **▶ Run pipeline**. Progress shows live in the window; when it finishes it opens
+   the cohort report, and buttons let you open the **gallery** and the **results folder**.
 
 ## Reading your results
 
