@@ -167,6 +167,8 @@ h1{{font-size:1.7rem}} h2{{font-size:1.2rem;margin-top:2rem;border-bottom:2px so
 .tbl th{{background:#f0f4f8}} td.k{{background:#f7f9fb;font-weight:600}}
 .muted{{color:#8a94a6;font-style:italic}} figure{{margin:10px 0}}
 .lead{{background:#eef4f8;border-left:4px solid #2a6f97;padding:10px 14px;border-radius:4px}}
+@media print {{ body{{max-width:none;margin:0.4in}} figure,table,ul{{page-break-inside:avoid}}
+  h2{{page-break-after:avoid}} a[href]:after{{content:""}} }}
 </style></head><body>
 <h1>Xon aperiodic pipeline &mdash; cohort report</h1>
 <p class='lead'>Recordings processed: <b>{n_ok}</b>. This is a <b>measurement-validation</b> report:
@@ -304,4 +306,12 @@ reliability studies. EMG contamination of high-frequency EEG: <b>Whitham et&nbsp
         fh.write(doc)
     paths["cohort_report"] = str(report_path)
     info(f"Cohort report: {report_path}")
+
+    # share-ready exports: figures.pdf, single-file standalone HTMLs, and a bundle .zip
+    try:
+        from . import export as EX
+        paths.update(EX.export_all(out_dir))
+        info("Share formats written: figures.pdf, *_standalone.html, and a results bundle .zip.")
+    except Exception as exc:  # noqa: BLE001
+        info(f"Export step skipped ({exc}).")
     return paths

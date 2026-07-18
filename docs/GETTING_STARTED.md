@@ -44,6 +44,20 @@ instead — it never triggers the warning.
 
 ---
 
+## Opening it again later (after the first install)
+
+You do **not** repeat the install command. Two easy ways:
+
+- Double-click **`Open Xon Pipeline`** on your Desktop (a shortcut is created for you the
+  first time you run it), **or**
+- open the `xon-aperiodic-pipeline-main` folder and double-click **`Start Here (Mac).command`**.
+
+**It stays up to date automatically.** Each time you open it, it quietly checks GitHub and
+pulls the latest version of the *code* (your data and results are never touched — only the
+public code is fetched, so it stays HIPAA-safe). No re-downloading, no deleting folders. To
+freeze a specific version (e.g. while writing up results), set the environment variable
+`XON_NO_UPDATE=1`.
+
 ## Running it
 
 1. Put your recordings in a folder (anywhere — they can be named anything, and it's fine
@@ -69,6 +83,21 @@ Open the output folder. The three files most people want are at the top:
 Everything granular (per-recording tables, per-recording QC reports, individual figures)
 is tucked into the `per_recording/`, `figures/`, and `statistics/` sub-folders so the top
 level stays clean.
+
+## Sharing results (slides, email, PDF)
+
+When a run finishes, the app makes share-ready files automatically (and the buttons at the
+bottom let you make them anytime):
+
+- **`figures.pdf`** — every publication figure, one per page. Drop straight into slides.
+- **`cohort_report_standalone.html`** / **`gallery_standalone.html`** — single self-contained
+  files (images baked in) you can email; they open on any computer with no setup.
+- **`xon_results_bundle_<date>.zip`** — everything (report, gallery, figures, statistics)
+  zipped for handing to a colleague.
+- **Save report as PDF** — the button opens the report in your browser; press ⌘P (or Ctrl+P)
+  and choose "Save as PDF" for a clean, formatted PDF.
+
+The individual figures are also PNGs in the `figures/` folder.
 
 ## If something isn't working
 

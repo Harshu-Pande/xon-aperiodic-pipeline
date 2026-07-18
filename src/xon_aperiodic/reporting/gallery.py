@@ -119,6 +119,7 @@ h1{{font-size:1.5rem;margin:0 0 4px}}
 .tag{{color:#fff;font-size:.7rem;padding:2px 8px;border-radius:10px}}
 .badges{{margin-top:8px;font-size:.85rem;color:#33475b}} .badges b{{color:#12263a}}
 .links{{margin-top:4px;font-size:.8rem}} .links a{{color:#2a6f97;text-decoration:none}}
+@media print {{ .controls{{display:none}} .card{{page-break-inside:avoid}} body{{background:#fff}} }}
 </style></head><body>
 <h1>Diagnostics gallery</h1>
 <div class='sub'>{summary} &middot; <a href='cohort_report.html'>&larr; back to the cohort report</a></div>

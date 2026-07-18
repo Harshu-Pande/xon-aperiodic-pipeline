@@ -165,6 +165,12 @@ class App:
         self.open_folder_btn = tk.Button(self.done_row, text="📁 Open results folder",
                                          command=self._open_folder, state="disabled")
         self.open_folder_btn.pack(side="left")
+        self.pdf_btn = tk.Button(self.done_row, text="🖨 Save report as PDF",
+                                 command=self._save_pdf, state="disabled")
+        self.pdf_btn.pack(side="left", padx=6)
+        self.export_btn = tk.Button(self.done_row, text="📦 Export / share (.zip, PDF)",
+                                    command=self._export_share, state="disabled")
+        self.export_btn.pack(side="left")
 
     # ---- input/output selection ----
     def _split(self, data: str) -> List[str]:
@@ -421,7 +427,8 @@ class App:
         self.run_btn.config(state="normal", text="▶  Run pipeline")
         if ok:
             self._log_write("\n✓ Done.")
-            for b in (self.open_report_btn, self.open_gallery_btn, self.open_folder_btn):
+            for b in (self.open_report_btn, self.open_gallery_btn, self.open_folder_btn,
+                      self.pdf_btn, self.export_btn):
                 b.config(state="normal")
             # auto-open the report
             self._open_report()
@@ -463,6 +470,33 @@ class App:
             else:
                 import subprocess
                 subprocess.run(["open" if os.uname().sysname == "Darwin" else "xdg-open", base])
+
+    def _save_pdf(self):
+        """Open the report in the browser and prompt Save-as-PDF (works on any machine)."""
+        base = Path(self.output_entry.get() or self.output_dir)
+        standalone = base / "cohort_report_standalone.html"
+        target = standalone if standalone.exists() else Path(self._out("cohort_report") or "")
+        if target and Path(target).exists():
+            webbrowser.open(Path(target).as_uri())
+            shortcut = "⌘P" if sys.platform == "darwin" else "Ctrl+P"
+            messagebox.showinfo("Save as PDF",
+                                f"The report opened in your browser.\n\nPress {shortcut}, then choose "
+                                "'Save as PDF' as the destination. This gives a clean, shareable PDF.")
+
+    def _export_share(self):
+        """Create figures.pdf, single-file HTMLs, and a shareable ZIP, then open the folder."""
+        from xon_aperiodic.reporting import export as EX
+        base = self.output_entry.get() or self.output_dir
+        try:
+            paths = EX.export_all(base)
+        except Exception as exc:
+            messagebox.showerror("Export failed", str(exc)); return
+        made = "\n".join(f"• {Path(v).name}" for v in paths.values()) or "(nothing to export)"
+        messagebox.showinfo("Exported for sharing",
+                            f"Created in the results folder:\n\n{made}\n\n"
+                            "The .zip bundles everything; figures.pdf is ready for slides; the "
+                            "*_standalone.html files are single portable files you can email.")
+        self._open_folder()
 
 
 def main(config_path: Optional[str] = None) -> int:

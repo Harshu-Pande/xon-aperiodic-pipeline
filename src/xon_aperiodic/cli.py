@@ -145,6 +145,23 @@ def cmd_webgui(args) -> int:
     return subprocess.call(cmd, env=env)
 
 
+def cmd_export(args) -> int:
+    """Make share-ready formats (figures.pdf, standalone HTML, bundle .zip) for a run."""
+    from .reporting import export as EX
+    out = Path(args.output) if args.output else load_config(args.config).output_dir
+    if not out.exists():
+        print(f"Output folder not found: {out}", file=sys.stderr)
+        return 2
+    paths = EX.export_all(out)
+    if not paths:
+        print(f"Nothing to export in {out} (run the pipeline first).", file=sys.stderr)
+        return 1
+    print("Exported:")
+    for k, v in paths.items():
+        print(f"  {k}: {v}")
+    return 0
+
+
 def cmd_config(args) -> int:
     import yaml
     cfg = _load(args)
@@ -181,6 +198,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     w = sub.add_parser("webgui", help="Launch the Streamlit web GUI (alternative).")
     w.set_defaults(func=cmd_webgui)
+
+    e = sub.add_parser("export", help="Make share-ready formats (PDF, standalone HTML, ZIP) for a run.")
+    e.add_argument("--output", default=None, help="The run's output folder (default: config output_dir).")
+    e.set_defaults(func=cmd_export)
 
     c = sub.add_parser("config", help="Print the resolved configuration and exit.")
     c.add_argument("--set", action="append", metavar="section.key=value")
