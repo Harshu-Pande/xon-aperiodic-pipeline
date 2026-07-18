@@ -18,48 +18,24 @@ cd "$(dirname "$0")"
 # own folder so it never nags again. (No admin rights needed; ignores failure silently.)
 xattr -dr com.apple.quarantine "$(pwd)" >/dev/null 2>&1 || true
 
-# ---------------------------------------------------------------------------
-# AUTO-UPDATE: keep the CODE in sync with GitHub (your data/outputs/.venv are never
-# touched). Only the public code is fetched — no patient data ever leaves the machine,
-# so this is HIPAA-safe. Set XON_NO_UPDATE=1 to freeze a version (e.g. for a paper).
-# ---------------------------------------------------------------------------
-REPO="Harshu-Pande/xon-aperiodic-pipeline"
-if [ "${XON_NO_UPDATE:-0}" != "1" ] && [ "${XON_UPDATED:-0}" != "1" ]; then
-  latest="$(curl -fsS --max-time 6 "https://api.github.com/repos/$REPO/commits/main" 2>/dev/null \
-            | sed -n 's/.*"sha": *"\([0-9a-f]\{7,\}\)".*/\1/p' | head -1 || true)"
-  current="$(cat .xon_version 2>/dev/null || true)"
-  if [ -n "$latest" ] && [ -z "$current" ]; then
-    # Freshly installed — just record the version; don't re-download what we just got.
-    echo "$latest" > .xon_version 2>/dev/null || true
-  elif [ -n "$latest" ] && [ "$latest" != "$current" ]; then
-    echo "Updating to the latest version…"
-    tmp="$(mktemp -d)"
-    if curl -fsSL --max-time 90 "https://github.com/$REPO/archive/refs/heads/main.zip" -o "$tmp/u.zip" \
-       && unzip -oq "$tmp/u.zip" -d "$tmp"; then
-      src="$tmp/xon-aperiodic-pipeline-main"
-      [ -f config/config.yaml ] && cp -f config/config.yaml config/config.yaml.bak 2>/dev/null || true
-      if command -v rsync >/dev/null 2>&1; then
-        rsync -a --exclude '.venv' --exclude 'data' --exclude 'outputs' --exclude '.xon_version' \
-              --exclude '.git' "$src"/ ./ 2>/dev/null || true
-      else
-        cp -Rf "$src"/src "$src"/config "$src"/docs "$src"/examples "$src"/tests \
-               "$src"/*.sh "$src"/*.bat "$src"/*.toml "$src"/*.md "$src"/*.command . 2>/dev/null || true
-      fi
-      echo "$latest" > .xon_version 2>/dev/null || true
-      chmod +x run.sh "Start Here (Mac).command" 2>/dev/null || true
-      rm -rf "$tmp"
-      echo "Updated. Restarting…"
-      export XON_UPDATED=1
-      exec bash run.sh "$@"
-    fi
-    rm -rf "$tmp" 2>/dev/null || true
-  fi
-fi
-
 PY="${PYTHON:-python3}"
 if ! command -v "$PY" >/dev/null 2>&1; then
   echo "Python 3 was not found. Install Python 3.9+ from https://www.python.org/downloads/ and re-run." >&2
   exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# AUTO-UPDATE (smart): pulls the latest code from GitHub but PRESERVES any changes you
+# made locally (config.yaml or src). Handled by update.py. Only public code is fetched;
+# your data/outputs/.venv are never touched (HIPAA-safe). Set XON_NO_UPDATE=1 to freeze.
+# ---------------------------------------------------------------------------
+if [ "${XON_NO_UPDATE:-0}" != "1" ] && [ "${XON_UPDATED:-0}" != "1" ] && [ -f update.py ]; then
+  rc=0; "$PY" update.py || rc=$?
+  if [ "$rc" = "10" ]; then
+    export XON_UPDATED=1
+    chmod +x run.sh "Start Here (Mac).command" 2>/dev/null || true
+    exec bash run.sh "$@"
+  fi
 fi
 
 if [ ! -d ".venv" ]; then

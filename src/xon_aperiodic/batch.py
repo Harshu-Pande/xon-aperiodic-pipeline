@@ -6,10 +6,23 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
+
+
+def output_has_results(output_dir: str | Path) -> bool:
+    """True if this folder already holds a previous run's results."""
+    d = Path(output_dir)
+    return (d / "cohort_report.html").exists() or (d / "master_everything.csv").exists()
+
+
+def timestamped_sibling(output_dir: str | Path) -> Path:
+    """A fresh 'save a copy' folder next to the chosen one, e.g. outputs_2026-07-18_143022."""
+    d = Path(output_dir)
+    return d.parent / f"{d.name}_{datetime.now():%Y%m%d_%H%M%S}"
 
 from .config import Config, load_config
 from .logging_utils import setup_logging, banner, info

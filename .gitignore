@@ -43,6 +43,8 @@ htmlcov/
 
 # --- auto-update / local state (machine-specific, not part of the repo) ---
 .xon_version
+.xon_manifest.json
+*.update
 config/config.yaml.bak
 
 # --- OS / editor cruft ---

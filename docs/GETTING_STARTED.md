@@ -52,11 +52,14 @@ You do **not** repeat the install command. Two easy ways:
   first time you run it), **or**
 - open the `xon-aperiodic-pipeline-main` folder and double-click **`Start Here (Mac).command`**.
 
-**It stays up to date automatically.** Each time you open it, it quietly checks GitHub and
-pulls the latest version of the *code* (your data and results are never touched — only the
-public code is fetched, so it stays HIPAA-safe). No re-downloading, no deleting folders. To
-freeze a specific version (e.g. while writing up results), set the environment variable
-`XON_NO_UPDATE=1`.
+**It stays up to date automatically — but keeps your changes.** Each time you open it, it
+quietly pulls the latest *code* from GitHub (your data and results are never touched; only
+public code is fetched, so it stays HIPAA-safe). Crucially, **any file you edited yourself
+is preserved** — if you changed a setting in `config/config.yaml`, or even edited the source
+code, the update will *not* overwrite it. The newer version of anything you changed is saved
+right next to it as `<file>.update`, so you can adopt the new version later if you want.
+Files you didn't touch update normally; new features are added. To freeze everything (e.g.
+while writing up results), set the environment variable `XON_NO_UPDATE=1`.
 
 ## Running it
 
@@ -71,6 +74,10 @@ freeze a specific version (e.g. while writing up results), set the environment v
    there, each field with a hover **?** explanation.
 5. Press **▶ Run pipeline**. Progress shows live in the window; when it finishes it opens
    the cohort report, and buttons let you open the **gallery** and the **results folder**.
+
+**Running a second time?** If the output folder already holds a previous run, the app asks
+whether to **overwrite** it or **save this run as a new dated copy** (so you never lose the
+earlier results). Choosing a different output folder always leaves earlier runs untouched.
 
 ## Reading your results
 

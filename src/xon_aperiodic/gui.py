@@ -381,6 +381,24 @@ class App:
             cfg = self._apply_settings()
         except Exception as exc:
             messagebox.showerror("Invalid settings", str(exc)); return
+
+        # If the output folder already has results, ask what to do (unless it's a new folder).
+        from xon_aperiodic.batch import output_has_results, timestamped_sibling
+        if output_has_results(cfg.output_dir):
+            choice = messagebox.askyesnocancel(
+                "This folder already has results",
+                f"'{cfg.output_dir}' already contains results from a previous run.\n\n"
+                "•  Yes  = overwrite them\n"
+                "•  No   = keep them and save this run as a new copy\n"
+                "•  Cancel = don't run")
+            if choice is None:
+                return  # cancel
+            if choice is False:  # new copy
+                new = str(timestamped_sibling(cfg.output_dir))
+                cfg.data["io"]["output_dir"] = new
+                self.output_entry.delete(0, "end"); self.output_entry.insert(0, new)
+                self._log_write(f"Saving this run to a new copy: {new}")
+
         self.run_btn.config(state="disabled", text="Running…")
         for b in (self.open_report_btn, self.open_gallery_btn, self.open_folder_btn):
             b.config(state="disabled")

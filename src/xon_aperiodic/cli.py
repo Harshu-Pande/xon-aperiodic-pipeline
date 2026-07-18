@@ -66,6 +66,23 @@ def _load(args) -> Config:
     return cfg
 
 
+def _resolve_output_conflict(cfg, mode: str) -> None:
+    """Handle an output folder that already has results: overwrite / copy / ask."""
+    from .batch import output_has_results, timestamped_sibling
+    if not output_has_results(cfg.output_dir):
+        return
+    if mode == "ask":
+        ans = input(f"\n'{cfg.output_dir}' already has results.\n"
+                    "  [o] overwrite   [c] save a new copy   [a] abort  ? ").strip().lower()
+        mode = {"o": "overwrite", "c": "copy", "a": "abort"}.get(ans[:1], "overwrite")
+    if mode == "copy":
+        new = timestamped_sibling(cfg.output_dir)
+        cfg.data["io"]["output_dir"] = str(new)
+        print(f"Saving this run to a new copy: {new}")
+    elif mode == "abort":
+        raise SystemExit("Aborted — no changes made.")
+
+
 def cmd_run(args) -> int:
     from .batch import run_batch, find_xdf_files
     from .pipeline import run_pipeline
@@ -74,6 +91,7 @@ def cmd_run(args) -> int:
     import pandas as pd
 
     cfg = _load(args)
+    _resolve_output_conflict(cfg, getattr(args, "if_exists", "overwrite"))
     setup_logging(cfg.output_dir)
 
     if args.input:                       # single file
@@ -185,6 +203,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--no-recursive", dest="recursive", action="store_false",
                    help="Do not search sub-folders.")
     r.add_argument("--no-stats", action="store_true", help="Skip cohort statistics/report.")
+    r.add_argument("--if-exists", choices=["overwrite", "copy", "ask"], default="overwrite",
+                   help="If the output folder already has results: overwrite, save a new "
+                        "timestamped copy, or ask (default: overwrite).")
     r.add_argument("--set", action="append", metavar="section.key=value",
                    help="Override any config key (repeatable).")
     r.set_defaults(func=cmd_run)

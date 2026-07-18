@@ -10,17 +10,22 @@ REM ==========================================================================
 setlocal
 cd /d "%~dp0"
 
-REM --- auto-update the CODE from GitHub (your data/outputs/.venv are untouched; only the
-REM --- public code is fetched, so it stays HIPAA-safe). Set XON_NO_UPDATE=1 to freeze.
-if not "%XON_NO_UPDATE%"=="1" (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-   "try { $r='Harshu-Pande/xon-aperiodic-pipeline'; $h=@{'User-Agent'='xon'}; $latest=(Invoke-RestMethod -TimeoutSec 8 -Headers $h -Uri ('https://api.github.com/repos/'+$r+'/commits/main')).sha; $cur=''; if(Test-Path '.xon_version'){$cur=Get-Content '.xon_version'}; if($latest -and -not $cur){Set-Content '.xon_version' $latest} elseif($latest -and $latest -ne $cur){ Write-Host 'Updating to the latest version...'; $t=Join-Path $env:TEMP ('xon_'+[guid]::NewGuid()); New-Item -ItemType Directory $t | Out-Null; Invoke-WebRequest -TimeoutSec 90 -Uri ('https://github.com/'+$r+'/archive/refs/heads/main.zip') -OutFile ($t+'\u.zip'); Expand-Archive -Force ($t+'\u.zip') $t; robocopy (Join-Path $t 'xon-aperiodic-pipeline-main') . /E /XD .venv data outputs .git /XF .xon_version run.bat 'Start Here (Windows).bat' | Out-Null; Set-Content '.xon_version' $latest; Remove-Item -Recurse -Force $t } } catch {}"
-)
-
 where python >nul 2>nul
 if errorlevel 1 (
   echo Python was not found. Install Python 3.9+ from https://www.python.org/downloads/ and re-run.
   exit /b 1
+)
+
+REM --- AUTO-UPDATE (smart): pulls the latest code but PRESERVES your local edits
+REM --- (config.yaml or src). Handled by update.py. Only public code is fetched; your
+REM --- data/outputs/.venv are never touched. Set XON_NO_UPDATE=1 to freeze.
+if not "%XON_NO_UPDATE%"=="1" if not "%XON_UPDATED%"=="1" if exist update.py (
+  python update.py
+  if errorlevel 10 (
+    set XON_UPDATED=1
+    call run.bat %*
+    exit /b
+  )
 )
 
 if not exist ".venv" (
