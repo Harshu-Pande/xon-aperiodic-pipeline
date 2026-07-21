@@ -141,7 +141,7 @@ artifacts:
   reference: null
 
 # -----------------------------------------------------------------------------
-# PROACTIVE BAD-CHANNEL SCREEN  (optional, OFF by default)
+# PROACTIVE BAD-CHANNEL SCREEN  (ON by default - mentor-approved)
 # The whole-recording variance detector above can MISS a channel that is only bad in
 # bursts (e.g. a frontal electrode catching eye/muscle) - it doesn't look like the
 # highest-variance channel, so it slips through and then trashes many epochs. This screen
@@ -150,7 +150,7 @@ artifacts:
 # BEFORE epoch rejection - recovering epochs that one bad channel would otherwise drain.
 # -----------------------------------------------------------------------------
 channel_screen:
-  enabled: false
+  enabled: true
   min_epoch_share_pct: 50.0     # flag a channel if it would trip more than this % of epochs
 
 # -----------------------------------------------------------------------------

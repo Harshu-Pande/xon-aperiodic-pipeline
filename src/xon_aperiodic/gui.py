@@ -307,8 +307,8 @@ class App:
             "Reject epochs with excess high-frequency (muscle) power (blank to disable).")
 
         g = group("Channel rejection")
-        check(g, "channel_screen.enabled", "Screen bad channels before rejecting", cs.get("enabled", False),
-              "PROACTIVE: if a channel would trip more than the % below of epochs (same test that "
+        check(g, "channel_screen.enabled", "Screen bad channels before rejecting", cs.get("enabled", True),
+              "PROACTIVE (on by default, mentor-approved): if a channel would trip more than the % below of epochs (same test that "
               "rejects epochs), interpolate it BEFORE epoch rejection. Catches burst-bad channels "
               "the variance detector misses, which otherwise drain 80%+ of a recording.")
         num(g, "channel_screen.min_epoch_share_pct", "  screen threshold (% of epochs)",
@@ -347,6 +347,10 @@ class App:
         combo(g, "xdf.data_units", "Data units", ["uV", "mV", "V"], xd.get("data_units", "uV"), "Units the device stored EEG in.")
         check(g, "analysis.block_analysis", "Block analysis (over time)", an.get("block_analysis", True), "Fit each 5-min block to see drift.")
         check(g, "analysis.reliability_analysis", "Reliability vs recording length", an.get("reliability_analysis", True), "The 'how few minutes are enough' analysis.")
+        num(g, "analysis.stabilization_tolerance", "Stabilisation tolerance", an.get("stabilization_tolerance", 0.02),
+            "How close (in exponent units) the estimate must get to its full-length value to count as "
+            "'settled'. Smaller = stricter, and the honest 'how few minutes' answer. 0.1 is too lax "
+            "(declares settled at ~1 min while still climbing); 0.02 matches the visible asymptote.")
 
     # ---- assemble config from settings ----
     def _apply_settings(self):

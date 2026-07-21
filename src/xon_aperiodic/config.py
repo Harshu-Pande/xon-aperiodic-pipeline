@@ -64,7 +64,7 @@ DEFAULTS: Dict[str, Any] = {
         "ica_ecg_threshold": 0.3,
         "reference": None,
     },
-    "channel_screen": {"enabled": False, "min_epoch_share_pct": 50.0},
+    "channel_screen": {"enabled": True, "min_epoch_share_pct": 50.0},
     "exponent_rejection": {"enabled": True, "threshold": 0.5},
     "high_offender": {
         "enabled": False,
