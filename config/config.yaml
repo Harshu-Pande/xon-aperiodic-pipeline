@@ -199,9 +199,13 @@ analysis:
   # recording length - the rigorous version of "how few minutes are enough?"
   reliability_analysis: true
   reliability_step_sec: 30.0   # evaluate the estimate every this many seconds of clean data
-  # Per-recording "how many minutes are enough for THIS person": the point where the two
-  # independent halves (odd vs even epochs) agree within this tolerance and stay agreed.
-  stabilization_tolerance: 0.1
+  # Per-recording "how many minutes are enough": how close (in exponent units) the running
+  # estimate must get to its full-length value, and the two halves to each other, to count as
+  # "settled". This is a JUDGMENT CALL and the answer depends on it: 0.1 is too lax (declares
+  # settled almost immediately even while the curve is still climbing); 0.02 (~a small exponent
+  # difference) matches where the curve visibly reaches its asymptote. The cohort report also
+  # shows a sensitivity table across several tolerances so no single choice drives the answer.
+  stabilization_tolerance: 0.02
 
 # -----------------------------------------------------------------------------
 # PERFORMANCE  -  process multiple recordings at once to finish a batch faster.

@@ -256,16 +256,23 @@ shows the <b>group-mean exponent</b> vs recording length (rest solid, movie dash
 over the first several minutes and then approaches an asymptote — the point past which more
 data barely changes the group value.</p>
 {_img(figs.get('group_exponent_by_duration',''), out_dir)}
-<p><b>(b) When does the estimate stabilise / how reliable is it?</b> Two 0–1 curves:
+<p><b>(b) Reliability curves — but note what each one means.</b> Two 0–1 curves:
 <b>split-half internal consistency</b> (odd vs even epochs; target &ge; {sh_target}) stays
-high throughout, and the <b>adjacent-minute ICC</b> — the agreement between the estimate at
-one length and the next (1 vs 2 min, 2 vs 3 min …) — approaches 1 once adding a minute stops
-changing the per-person estimate. The length where it settles is the data-driven "enough."</p>
+high throughout, and the <b>adjacent-minute ICC</b> (1 vs 2 min, 2 vs 3 min …).</p>
 {_img(figs.get('reliability_by_duration',''), out_dir)}
-<p style='background:#eef4f8;border-left:4px solid #2a6f97;padding:8px 12px;border-radius:4px;font-size:.9rem'>
-Adjacent-minute ICC stabilises by
-<b>{(st.get('adjacent_icc') or {}).get('minutes_to_stable_icc','—')} min</b>; the group
-exponent asymptote is visible in the plot above.</p>
+<p style='background:#fff8e6;border-left:4px solid #e9a23b;padding:8px 12px;border-radius:4px;font-size:.9rem'>
+<b>Important — "stabilises by ~2 min" is about RANKING, not the value.</b> The adjacent-minute
+ICC is high early because it measures whether participants keep the same <i>relative order</i>
+as data accumulates — and they do. It does <b>not</b> mean each person's exponent has stopped
+changing: as the group-mean plot above shows, the absolute value keeps rising for ~10–15 min.
+How long the <i>value itself</i> takes to settle depends on how close you require it to be to
+the full-length value — a genuine judgment call, so we report it across tolerances rather than
+picking one:</p>
+{_df_to_html((st.get('settling_sensitivity') or {}).get('table'))}
+<p class='muted'>A loose tolerance (0.1 exponent units) declares "settled" almost immediately
+even while the curve is still climbing; a tight one (0.02) reflects the true asymptote. The
+honest "how few minutes are enough" for the exponent <i>value</i> is on the order of
+10–17 minutes here, not 1–2 — pick the tolerance that matches the difference you care about.</p>
 <h3 style='font-size:1.05rem'>Every recording's curve (coloured by participant)</h3>
 <p>Each recording's exponent as clean data accumulates — one colour per participant, rest
 solid, movie dashed.</p>

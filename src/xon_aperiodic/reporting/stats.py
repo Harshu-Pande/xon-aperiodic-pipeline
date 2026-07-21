@@ -567,6 +567,39 @@ def group_exponent_by_duration(results: List[Any], step_min: float = 1.0) -> Dic
                 by_condition={c: _summ([r for r in rows if r["condition"] == c]) for c in conds})
 
 
+def settling_sensitivity(results: List[Any], tolerances=(0.05, 0.03, 0.02)) -> Dict[str, Any]:
+    """How many minutes the exponent needs to settle within various tolerances of its
+    full-length value — reported across tolerances so the 'how few minutes' answer is not
+    driven by one arbitrary threshold. A loose tolerance (0.1) declares settling almost
+    immediately; tighter ones (0.02) reveal the true asymptote takes much longer."""
+    curves = [getattr(r, "duration_df", None) for r in results]
+    curves = [c for c in curves if c is not None and getattr(c, "empty", True) is False
+              and "exponent_all" in c.columns]
+    if not curves:
+        return dict(note="no duration curves available")
+
+    def _settle(df, tol):
+        df = df.dropna(subset=["exponent_all"]).sort_values("clean_minutes")
+        if len(df) < 2:
+            return None
+        vals = df["exponent_all"].values.astype(float)
+        mins = df["clean_minutes"].values.astype(float)
+        within = np.abs(vals - float(vals[-1])) <= float(tol)
+        for i in range(len(within)):
+            if np.all(within[i:]):
+                return float(mins[i])
+        return None
+
+    rows = []
+    for tol in tolerances:
+        got = [v for v in (_settle(c, tol) for c in curves) if v is not None]
+        rows.append(dict(tolerance=tol,
+                         median_minutes=round(float(np.median(got)), 1) if got else "",
+                         iqr_minutes=round(float(np.percentile(got, 75) - np.percentile(got, 25)), 1) if len(got) > 1 else "",
+                         n_settled=len(got), n_never=len(curves) - len(got)))
+    return dict(table=pd.DataFrame(rows), n_recordings=len(curves))
+
+
 def demographics_analysis(master: pd.DataFrame, demo_csv, condition: Optional[str] = "rest"
                           ) -> Dict[str, Any]:
     """Merge a demographics CSV (participant, age, sex) with each participant's mean exponent
@@ -640,5 +673,6 @@ def compute_all(master: pd.DataFrame, results: List[Any], regions: Dict[str, Lis
         adjacent_icc=adjacent_duration_icc(results, step_min=1.0, icc_target=icc_target, min_n=min_n),
         group_exponent_duration=group_exponent_by_duration(results, step_min=1.0),
         stabilization=stabilization_summary(master),
+        settling_sensitivity=settling_sensitivity(results),
         demographics=demographics_analysis(master, demographics_csv, condition=region_condition),
     )
