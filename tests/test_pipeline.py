@@ -146,6 +146,32 @@ def test_high_offender_excludes_burst_channel(base_cfg, tmp_path):
 # --------------------------------------------------------------------------
 # reference override changes the exponent (regression sanity)
 # --------------------------------------------------------------------------
+def test_channel_screen_recovers_epochs(base_cfg, tmp_path):
+    """A burst-bad channel the variance detector misses should be caught by the screen and
+    interpolated before rejection, recovering most epochs (the P002 scenario)."""
+    base_cfg.data["analysis"]["block_analysis"] = False
+    base_cfg.data["analysis"]["reliability_analysis"] = False
+    base_cfg.data["artifacts"]["detect_bad_channels"] = False   # mimic 'detector missed it'
+    rng = np.random.default_rng(5)
+    data = make_recording(250.0, 3.0, 1.2, rng, amp_uv=9.0)
+    f3 = XON_CHANNELS.index("F3")
+    for start in range(0, data.shape[1], int(250.0 * 1.3)):     # brief spikes trip most epochs
+        w = int(250.0 * 0.04)
+        data[f3, start:start + w] += 200 * np.sign(rng.standard_normal())
+    path = tmp_path / "burst.xdf"
+    write_xdf(path, data, 250.0, XON_CHANNELS)
+    meta = FileMetadata(path=str(path), file_stem="burst", subject_id="burst")
+
+    base_cfg.data["channel_screen"]["enabled"] = False
+    off = run_pipeline(str(path), cfg=base_cfg, metadata=meta).master_record
+    base_cfg.data["channel_screen"]["enabled"] = True
+    on = run_pipeline(str(path), cfg=base_cfg, metadata=meta).master_record
+
+    assert off["pct_epochs_rejected"] > 50                      # bad channel drains it
+    assert "F3" in str(on["screened_channels"])                # screen catches it
+    assert on["pct_epochs_rejected"] < off["pct_epochs_rejected"] / 2   # far fewer rejections
+
+
 def test_average_reference_runs(base_cfg, clean_xdf):
     base_cfg.data["analysis"]["block_analysis"] = False
     base_cfg.data["analysis"]["convergence_analysis"] = False

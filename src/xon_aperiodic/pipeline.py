@@ -29,7 +29,7 @@ from .preprocess import (
     run_ica, apply_reference, eeg_channel_names, resolve_channel,
 )
 from .epoching import make_awake_epochs
-from .artifacts import reject_artifacts
+from .artifacts import reject_artifacts, channels_over_reject_share
 from .spectral import (fit_segment, compute_duration_curve, duration_stabilization,
                        duration_convergence_to_full)
 from . import diagnostics
@@ -214,6 +214,39 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
                     full_rows=f_rows, full_peaks=f_peaks, freqs=f_freqs, psd_2d=f_psd,
                     fm_by_channel=f_fm, ch_names=f_ch)
 
+    # Proactive epoch-based bad-channel screen (optional, off by default): flag a channel
+    # that would trip more than a share of epochs (same criteria that reject epochs) and add
+    # it to the bads so _process INTERPOLATES it before rejection — recovering epochs one
+    # burst-bad channel would otherwise drain (the variance detector misses those).
+    cs = cfg.section("channel_screen")
+    screened_channels: List[str] = []
+    if cs.get("enabled", False):
+        step("STEP 3b: Bad-channel screen (would-trip share, before rejection)")
+        good = eeg_channel_names(raw_after_ica, exclude_bads=True)
+        if len(good) >= 4:
+            screen_ep = mne.make_fixed_length_epochs(
+                raw_after_ica.copy().pick(good), duration=epoch_len,
+                overlap=(epoch_overlap if epoch_overlap < epoch_len else 0.0),
+                preload=True, reject_by_annotation=True, verbose=False)
+            share = float(cs.get("min_epoch_share_pct", 50.0)) / 100.0
+            cand = channels_over_reject_share(
+                screen_ep, float(A["amplitude_threshold_uv"]), float(A["flat_threshold_uv"]),
+                A.get("variance_zscore_threshold"), A.get("muscle_zscore_threshold"),
+                float(A["muscle_hf_hz"]), A.get("gradient_threshold_uv_per_ms"), share)
+            if cand and len(good) - len(cand) >= 3:
+                for ch in cand:
+                    if ch not in raw_after_ica.info["bads"]:
+                        raw_after_ica.info["bads"].append(ch)
+                screened_channels = cand
+                info(f"  Screen flagged {cand} (each trips > {cs.get('min_epoch_share_pct')}% of "
+                     "epochs); they will be interpolated before rejection.")
+            elif cand:
+                info(f"  Screen flagged {cand}, but keeping >=3 good channels forbids it; skipping.")
+            else:
+                info(f"  No channel trips > {cs.get('min_epoch_share_pct')}% of epochs.")
+        else:
+            info(f"  Only {len(good)} good channel(s); skipping the screen.")
+
     # PASS 1
     res = _process(raw_after_ica.copy())
 
@@ -323,6 +356,9 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
         high_offender_min_reject_pct=ho.get("min_reject_pct") if ho.get("enabled") else "",
         high_offender_action=ho.get("action") if ho.get("enabled") else "",
         high_offender_flagged_channels=high_offender_note,
+        channel_screen=bool(cs.get("enabled", False)),
+        channel_screen_share_pct=cs.get("min_epoch_share_pct") if cs.get("enabled") else "",
+        screened_channels=";".join(screened_channels) if screened_channels else "",
         n_channels_analyzed=len(analyzed_channels),
     )
 

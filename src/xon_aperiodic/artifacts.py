@@ -29,6 +29,37 @@ def column_zscores(values: np.ndarray) -> np.ndarray:
     return z
 
 
+def channels_over_reject_share(epochs: mne.Epochs, amplitude_thresh_uv: float, flat_thresh_uv: float,
+                               variance_zscore_thresh: Optional[float], muscle_zscore_thresh: Optional[float],
+                               muscle_hf_hz: float, gradient_thresh_uv_per_ms: Optional[float],
+                               share: float) -> list:
+    """PROACTIVE bad-channel screen: return channels that would trip MORE than ``share``
+    (a fraction, e.g. 0.5) of the epochs, using the SAME criteria that reject epochs
+    (amplitude / flat / gradient / variance-z / muscle-z). This catches a channel that is
+    bad in bursts — which the whole-recording variance detector misses — so it can be
+    interpolated BEFORE epoch rejection instead of silently draining the recording."""
+    n = len(epochs)
+    ch_names = list(epochs.ch_names)
+    if n < 5:
+        return []
+    data = epochs.get_data()                                  # epochs x channels x time (V)
+    ptp = data.max(axis=2) - data.min(axis=2)
+    trip = (ptp > amplitude_thresh_uv * 1e-6) | (ptp < flat_thresh_uv * 1e-6)
+    if gradient_thresh_uv_per_ms is not None:
+        dt_ms = 1000.0 / epochs.info["sfreq"]
+        grad = (np.abs(np.diff(data, axis=2)) * 1e6 / dt_ms).max(axis=2)
+        trip |= grad > float(gradient_thresh_uv_per_ms)
+    if variance_zscore_thresh is not None:
+        trip |= column_zscores(data.var(axis=2)) > float(variance_zscore_thresh)
+    if muscle_zscore_thresh is not None and muscle_hf_hz < epochs.info["sfreq"] / 2.0:
+        hf = epochs.copy().filter(l_freq=muscle_hf_hz, h_freq=None, verbose=False).get_data()
+        trip |= column_zscores(hf.var(axis=2)) > float(muscle_zscore_thresh)
+    frac = trip.sum(axis=0) / float(n)                        # per-channel share of epochs tripped
+    flagged = [(ch, f) for ch, f in zip(ch_names, frac) if f > float(share)]
+    flagged.sort(key=lambda x: x[1], reverse=True)
+    return [ch for ch, _ in flagged]
+
+
 def reject_artifacts(
     epochs: mne.Epochs,
     amplitude_thresh_uv: float,

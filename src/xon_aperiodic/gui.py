@@ -246,6 +246,7 @@ class App:
 
         A = self.cfg.section("artifacts"); ho = self.cfg.section("high_offender")
         er = self.cfg.section("exponent_rejection"); an = self.cfg.section("analysis")
+        cs = self.cfg.section("channel_screen")
         fl = self.cfg.section("filter"); ep = self.cfg.section("epoch"); cr = self.cfg.section("crop")
         xd = self.cfg.section("xdf"); fr = self.cfg.get("fooof", "freq_range", [1, 40])
 
@@ -306,6 +307,13 @@ class App:
             "Reject epochs with excess high-frequency (muscle) power (blank to disable).")
 
         g = group("Channel rejection")
+        check(g, "channel_screen.enabled", "Screen bad channels before rejecting", cs.get("enabled", False),
+              "PROACTIVE: if a channel would trip more than the % below of epochs (same test that "
+              "rejects epochs), interpolate it BEFORE epoch rejection. Catches burst-bad channels "
+              "the variance detector misses, which otherwise drain 80%+ of a recording.")
+        num(g, "channel_screen.min_epoch_share_pct", "  screen threshold (% of epochs)",
+            cs.get("min_epoch_share_pct", 50.0),
+            "A channel that would trip more than this % of epochs is flagged and interpolated first.")
         check(g, "exponent_rejection.enabled", "Reject flat-exponent channels", er.get("enabled", True),
               "Drop a channel whose final exponent is implausibly flat (muscle). Mentor-endorsed.")
         num(g, "exponent_rejection.threshold", "Exponent threshold", er.get("threshold", 0.5),

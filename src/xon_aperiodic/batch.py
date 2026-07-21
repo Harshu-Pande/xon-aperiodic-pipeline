@@ -61,7 +61,7 @@ MASTER_LEAD_COLS = [
     "minutes_to_stabilize", "minutes_to_converge",
     "n_channels_analyzed", "n_interpolated", "n_excluded", "n_exponent_flagged",
     "bad_channels", "interpolated_channels", "excluded_channels",
-    "exponent_flagged_channels", "high_offender_flagged_channels",
+    "exponent_flagged_channels", "high_offender_flagged_channels", "screened_channels",
     "worst_reject_channel", "worst_reject_channel_share",
 ]
 

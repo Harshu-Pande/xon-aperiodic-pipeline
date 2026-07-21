@@ -17,6 +17,8 @@ file is always the source of truth for defaults.
 
 | I want to… | Setting (config.yaml → `--set`) | Default |
 |---|---|---|
+| **Screen bad channels before rejecting** (fixes 80%-rejected files) | `channel_screen.enabled` → `--set channel_screen.enabled=true` | `false` |
+| Change the screen's trip threshold | `channel_screen.min_epoch_share_pct` | `50` (%) |
 | **Turn ON high-offender channel dropping** | `high_offender.enabled` → `--set high_offender.enabled=true` | `false` |
 | Change the offender share that triggers a drop | `high_offender.share_threshold` | `50` (%) |
 | Only drop when the session is already noisy | `high_offender.min_reject_pct` | `15` (%) |
