@@ -97,7 +97,7 @@ xon-pipeline run --set artifacts.reference=average --set fooof.freq_range=[2,45]
 
 New to the settings, or planning to tinker a lot? See the plain-English
 [**settings cheat-sheet**](docs/SETTINGS.md) — an "I want to X → change Y" table covering
-the high-offender toggle, reference, ICA, FOOOF band, thresholds, and more. Or just tick
+the bad-channel screen, reference, ICA, FOOOF band, thresholds, and more. Or just tick
 them in the GUI.
 
 **How files are understood.** The pipeline reads each file's participant / session /
@@ -132,12 +132,12 @@ xon-aperiodic-pipeline/
 │   ├── preprocess.py             # montage, filter, bad channels, interpolate, ICA, reference
 │   ├── epoching.py, artifacts.py # epoching + 4-way rejection with per-channel attribution
 │   ├── spectral.py               # Welch PSD -> FOOOF exponent + duration curve
-│   ├── pipeline.py               # one file, two-pass exponent/high-offender logic
+│   ├── pipeline.py               # one file, bad-channel screen + two-pass exponent logic
 │   ├── batch.py                  # many files -> combined + master CSV
 │   ├── diagnostics.py            # per-file plots + HTML QC report
 │   ├── reporting/                # cohort stats, publication figures, cohort report
 │   ├── cli.py                    # `xon-pipeline` command
-│   └── gui.py                    # offline Streamlit GUI
+│   └── gui.py                    # offline native desktop GUI
 ├── tests/                        # pytest suite (synthetic data)
 ├── examples/                     # synthetic data generator + demo
 └── docs/                         # USAGE.md and the methods walkthrough
@@ -156,8 +156,9 @@ Every validated behaviour is preserved: XDF stream auto-detection, `standard_102
 robust-variance + `annotate_amplitude` bad-channel detection, average/spline interpolation
 (flagged and excluded from the average), the manually-implemented gradient reject matched to
 Krigolson's routine, the two-pass **exponent-based** channel rejection (fit → reject on the
-final value → refit), the experimental **high-offender** channel toggle with its ≥15%
-rejection gate, per-channel rejection attribution, block analysis, and the wide master CSV.
-Two correctness fixes were added along the way: a stability guard on the variance
-bad-channel detector at low channel counts, and excluding reconstructed channels from the
-average reference / epoch-drop decision.
+final value → refit), per-channel rejection attribution, block analysis, and the wide master
+CSV. A proactive **bad-channel screen** (on by default) was added so a burst-bad channel is
+interpolated before epoch rejection instead of draining the recording. Two correctness fixes
+were added along the way: a stability guard on the variance bad-channel detector at low
+channel counts, and excluding reconstructed channels from the average reference / epoch-drop
+decision.

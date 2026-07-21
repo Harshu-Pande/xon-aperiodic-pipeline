@@ -66,12 +66,6 @@ DEFAULTS: Dict[str, Any] = {
     },
     "channel_screen": {"enabled": True, "min_epoch_share_pct": 50.0},
     "exponent_rejection": {"enabled": True, "threshold": 0.5},
-    "high_offender": {
-        "enabled": False,
-        "share_threshold": 50.0,
-        "min_reject_pct": 15.0,
-        "action": "interpolate",
-    },
     "fooof": {
         "freq_range": [1, 40],
         "aperiodic_mode": "fixed",
@@ -209,8 +203,6 @@ class Config:
             raise ValueError("artifacts.interpolation_method must be 'average' or 'spline'.")
         if str(a.get("ica_method")) not in {"fastica", "infomax", "picard"}:
             raise ValueError("artifacts.ica_method must be fastica/infomax/picard.")
-        if str(self.get("high_offender", "action")) not in {"interpolate", "exclude"}:
-            raise ValueError("high_offender.action must be 'interpolate' or 'exclude'.")
         if str(self.get("xdf", "data_units")) not in {"uV", "mV", "V"}:
             raise ValueError("xdf.data_units must be 'uV', 'mV', or 'V'.")
         fr = self.get("fooof", "freq_range", [1, 40])

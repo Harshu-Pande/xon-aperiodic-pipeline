@@ -54,7 +54,7 @@ def make_recording(sfreq: float, minutes: float, exponent: float, rng: np.random
     """Return an (n_channels x n_samples) array in microvolts with a known exponent.
 
     Optionally inject one dead channel and/or one channel with amplitude bursts, so the
-    bad-channel / high-offender logic has something to catch in a demo.
+    bad-channel detection and screen have something to catch in a demo.
     """
     n = int(round(sfreq * minutes * 60.0))
     t = np.arange(n) / sfreq

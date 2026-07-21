@@ -34,7 +34,7 @@ xon-pipeline config                  # print the fully-resolved configuration
 xon-pipeline run \
   --set artifacts.reference=average \
   --set fooof.freq_range=[2,45] \
-  --set high_offender.enabled=true \
+  --set channel_screen.enabled=false \
   --set artifacts.run_ica=true
 ```
 
@@ -58,17 +58,19 @@ manifest overrides filename parsing.
 3. **Montage** (`standard_1020`) for interpolation / referencing.
 4. **Filter** — 0.1 Hz high-pass + 60/120 Hz notch.
 5. **Detect bad channels** — robust variance z-score + `annotate_amplitude` (flat/railing).
-6. **ICA** — off by default (underpowered at 7 channels).
-7. **Interpolate** bad channels (average of good channels), flag them, exclude from the average.
-8. **Reference** — keep device ear-clip (default), or `average` / a channel.
-9. **Epoch** — 1 s windows, 100 ms overlap.
-10. **Reject artifacts** — amplitude (>100 µV), gradient (>10 µV/ms), variance-z, muscle-z,
+6. **Bad-channel screen** (on by default) — flag any channel that would trip more than
+   `channel_screen.min_epoch_share_pct` (50%) of epochs using the same amplitude/gradient/
+   variance/muscle tests that reject epochs, so a burst-bad channel is caught here instead of
+   quietly draining the recording later.
+7. **ICA** — off by default (underpowered at 7 channels).
+8. **Interpolate** bad + screened channels (average of good channels), flag them, exclude from the average.
+9. **Reference** — keep device ear-clip (default), or `average` / a channel.
+10. **Epoch** — 1 s windows, 100 ms overlap.
+11. **Reject artifacts** — amplitude (>100 µV), gradient (>10 µV/ms), variance-z, muscle-z,
     each attributed to the offending channel(s).
-11. **FOOOF** — fit the 1–40 Hz aperiodic slope per channel → exponent.
-12. **Exponent-based rejection** (two-pass) — drop a channel whose *final* exponent is
+12. **FOOOF** — fit the 1–40 Hz aperiodic slope per channel → exponent.
+13. **Exponent-based rejection** (two-pass) — drop a channel whose *final* exponent is
     implausibly flat (<0.5), re-fit so reject-value = report-value.
-13. **High-offender rejection** (optional) — drop a channel causing >50% of a session's
-    rejected epochs, gated to only fire when overall rejection ≥15%.
 14. **Block** analysis + a **duration curve** (exponent on all/odd/even epochs at
     increasing lengths) that feeds the cohort reliability-vs-length analysis.
 15. **Cohort** statistics + figures + report across all files.

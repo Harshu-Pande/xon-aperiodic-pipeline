@@ -123,28 +123,7 @@ def test_batch_and_stats(base_cfg, cohort_dir):
 
 
 # --------------------------------------------------------------------------
-# high-offender toggle catches an injected burst channel
-# --------------------------------------------------------------------------
-def test_high_offender_excludes_burst_channel(base_cfg, tmp_path):
-    base_cfg.data["analysis"]["block_analysis"] = False
-    base_cfg.data["analysis"]["convergence_analysis"] = False
-    base_cfg.data["artifacts"]["detect_bad_channels"] = False   # mimic the detector missing it
-    base_cfg.data["high_offender"]["enabled"] = True
-    base_cfg.data["high_offender"]["min_reject_pct"] = 5.0
-    base_cfg.data["high_offender"]["action"] = "exclude"
-    rng = np.random.default_rng(3)
-    data = make_recording(250.0, 3.0, 1.2, rng, burst_channel="F3")
-    path = tmp_path / "burst.xdf"
-    write_xdf(path, data, 250.0, XON_CHANNELS)
-    meta = FileMetadata(path=str(path), file_stem="burst", subject_id="burst")
-    result = run_pipeline(str(path), cfg=base_cfg, metadata=meta)
-    note = result.master_record.get("high_offender_flagged_channels", "")
-    # F3 should be identified as the dominant offender (or the recording was clean enough)
-    assert "F3" in note or result.master_record.get("worst_reject_channel") == "F3"
-
-
-# --------------------------------------------------------------------------
-# reference override changes the exponent (regression sanity)
+# bad-channel screen catches an injected burst channel
 # --------------------------------------------------------------------------
 def test_channel_screen_recovers_epochs(base_cfg, tmp_path):
     """A burst-bad channel the variance detector misses should be caught by the screen and

@@ -99,7 +99,7 @@ def main() -> None:
 
     cfg_path = _get_config_arg() or str(default_config_path())
     cfg = load_config(cfg_path)
-    A = cfg.section("artifacts"); ho = cfg.section("high_offender")
+    A = cfg.section("artifacts")
     er = cfg.section("exponent_rejection"); an = cfg.section("analysis")
     fl = cfg.section("filter"); ep = cfg.section("epoch"); cr = cfg.section("crop")
     md = cfg.section("metadata"); xd = cfg.section("xdf"); stt = cfg.section("stats")
@@ -154,20 +154,6 @@ def main() -> None:
                                help="'fixed' = straight 1/f line; 'knee' allows a bend at low "
                                     "frequencies.")
 
-    st.markdown("**High-offender channel rejection** (experimental)")
-    hc1, hc2, hc3 = st.columns(3)
-    ho_on = hc1.checkbox("Enable", value=bool(ho.get("enabled", False)),
-                         help="If one electrode causes most of a session's rejected epochs, drop or "
-                              "interpolate just that channel instead of losing whole epochs.")
-    ho_share = hc2.slider("Offender share (%)", 10, 100, int(ho.get("share_threshold", 50)),
-                          disabled=not ho_on, help="A channel above this share of the rejected epochs "
-                                                   "is treated as the culprit.")
-    ho_min = hc3.slider("Only if rejection ≥ (%)", 0, 50, int(ho.get("min_reject_pct", 15)),
-                        disabled=not ho_on, help="Safety gate: only act when the session is already "
-                                                 "noisy, so clean sessions never lose a channel.")
-    ho_action = hc1.selectbox("Action", ["interpolate", "exclude"],
-                              index=0 if ho.get("action") == "interpolate" else 1, disabled=not ho_on,
-                              help="Rebuild the channel from neighbours, or drop it entirely.")
 
     # ---------------- ADVANCED ----------------
     with st.expander("⚙️ Advanced settings (filtering, epoching, thresholds, montage, metadata)"):
@@ -239,8 +225,6 @@ def main() -> None:
         detect_bad_channels=detect_bad, interpolate_bad_channels=interp,
         bad_channel_zscore=bad_z, interpolation_method=interp_method))
     cfg.data["exponent_rejection"].update(dict(enabled=exp_reject, threshold=exp_thr))
-    cfg.data["high_offender"].update(dict(enabled=ho_on, share_threshold=float(ho_share),
-                                          min_reject_pct=float(ho_min), action=ho_action))
     cfg.data["fooof"].update(dict(freq_range=[f_lo, f_hi], aperiodic_mode=ap_mode))
     cfg.data["filter"].update(dict(high_pass_hz=(hp if hp > 0 else None),
                                    notch_freq_hz=(notch if notch > 0 else None)))
@@ -289,7 +273,7 @@ def _show_results(outputs: dict, cfg) -> None:
         st.subheader("Results (one row per recording)")
         lead = [c for c in ["subject_id", "participant", "session", "condition",
                             "AVERAGE_exponent", "AVERAGE_r_squared", "pct_epochs_rejected",
-                            "high_offender_flagged_channels", "status"] if c in df.columns]
+                            "screened_channels", "status"] if c in df.columns]
         st.dataframe(df[lead] if lead else df, use_container_width=True)
         st.download_button("Download full results (CSV)", df.to_csv(index=False),
                            file_name="master_everything.csv")

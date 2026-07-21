@@ -164,19 +164,6 @@ exponent_rejection:
   threshold: 0.5
 
 # -----------------------------------------------------------------------------
-# HIGH-OFFENDER CHANNEL REJECTION  (EXPERIMENTAL - OFF by default, kept available)
-# If one channel causes more than `share_threshold`% of a session's rejected epochs
-# (a lone electrode catching bursts the whole-recording detector misses), drop or
-# interpolate just that channel - but only when the session's overall rejection is
-# already high (min_reject_pct gate), so clean sessions never lose a channel.
-# -----------------------------------------------------------------------------
-high_offender:
-  enabled: false
-  share_threshold: 50.0        # % of the session's REJECTED epochs a channel must exceed
-  min_reject_pct: 15.0         # only act if overall rejection >= this (0 disables the gate)
-  action: "interpolate"        # "interpolate" (blend from good channels) or "exclude" (drop)
-
-# -----------------------------------------------------------------------------
 # SPECTRUM & FOOOF / specparam  (aperiodic exponent = the E/I marker)
 # -----------------------------------------------------------------------------
 fooof:

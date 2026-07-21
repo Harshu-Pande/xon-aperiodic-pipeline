@@ -2,9 +2,9 @@
 
 This is the orchestrator. It preserves the validated design of the original:
   detect bad channels -> (ICA) -> [interpolate -> re-reference -> epoch -> QC -> FOOOF]
-with the bracketed sequence wrapped in a nested ``_process`` so it can be re-run:
-  * PASS 1 with only variance/amplitude bad channels,
-  * PASS 1b (optional) after adding high-offender channels,
+A proactive bad-channel screen runs first (interpolating any channel that would trip most
+epochs), then the bracketed sequence is wrapped in a nested ``_process`` so it can be re-run:
+  * PASS 1 with the variance/amplitude/screened bad channels,
   * PASS 2 (optional) after adding low-exponent channels,
 so the exponent we reject on is exactly the exponent we report.
 """
@@ -145,7 +145,6 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
     fooof_settings = cfg.fooof_settings
     detect_bad_exp = bool(cfg.get("exponent_rejection", "enabled"))
     exp_threshold = float(cfg.get("exponent_rejection", "threshold"))
-    ho = cfg.section("high_offender")
     an = cfg.section("analysis")
     analyze_all = bool(cfg.get("xdf", "analyze_all_channels", True))
     force_channel = cfg.get("xdf", "channel", None)
@@ -180,16 +179,10 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
 
     raw_after_ica = raw.copy()
 
-    def _process(raw_in: mne.io.BaseRaw, exclude_no_interp: Optional[List[str]] = None) -> Dict[str, Any]:
-        exclude_no_interp = [c for c in (exclude_no_interp or []) if c in raw_in.ch_names]
+    def _process(raw_in: mne.io.BaseRaw) -> Dict[str, Any]:
         interpolated: List[str] = []
         if A.get("interpolate_bad_channels", True):
-            held = [c for c in exclude_no_interp if c in raw_in.info["bads"]]
-            raw_in.info["bads"] = [b for b in raw_in.info["bads"] if b not in held]
             raw_in, interpolated = interpolate_bad_channels(raw_in, A.get("interpolation_method", "average"))
-            for c in held:
-                if c not in raw_in.info["bads"]:
-                    raw_in.info["bads"].append(c)
         if cfg.reference is not None:
             raw_in = apply_reference(raw_in, cfg.reference, exclude_from_average=interpolated)
         excluded = list(raw_in.info["bads"])
@@ -250,52 +243,6 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
     # PASS 1
     res = _process(raw_after_ica.copy())
 
-    # PASS 1b: high-offender channel rejection (EXPERIMENTAL, off by default)
-    high_offender_flagged: List[str] = []
-    high_offender_note = ""
-    if ho.get("enabled", False):
-        step("STEP 4b: High-offender channel rejection (EXPERIMENTAL, on rejection share)")
-        qc1 = res.get("qc_stats", {}) or {}
-        pch = qc1.get("per_channel_hits", {}) or {}
-        total_rej = int(qc1.get("epochs_before_qc", 0)) - int(qc1.get("epochs_final_clean", 0))
-        pct_rej = float(qc1.get("pct_epochs_rejected", 0.0) or 0.0)
-        already_bad = {c.upper() for c in (res["interpolated_channels"] + res["excluded_channels"])}
-        share_thr = float(ho.get("share_threshold", 50.0))
-        min_rej = float(ho.get("min_reject_pct", 15.0))
-        action = "exclude" if ho.get("action") == "exclude" else "interpolate"
-        if total_rej <= 0 or not pch:
-            info("  No rejected epochs to attribute; keeping pass-1 result.")
-        elif pct_rej < min_rej:
-            high_offender_note = f"skipped (only {pct_rej:.1f}% rejected < {min_rej:.0f}% gate)"
-            info(f"  Session only {pct_rej:.1f}% rejected (< {min_rej:.0f}% gate); keeping all channels.")
-        else:
-            shares = {ch: 100.0 * (int(h.get("amp_flat", 0)) + int(h.get("gradient", 0)) +
-                                   int(h.get("variance", 0)) + int(h.get("muscle", 0))) / total_rej
-                      for ch, h in pch.items()}
-            candidates = sorted([ch for ch, s in shares.items()
-                                 if s > share_thr and ch.upper() not in already_bad],
-                                key=lambda c: shares[c], reverse=True)
-            if not candidates:
-                info(f"  No channel above {share_thr:.0f}% rejection share; keeping pass-1 result.")
-            else:
-                good_now = len(eeg_channel_names(raw_after_ica, exclude_bads=True))
-                if good_now - len(candidates) < 3:
-                    high_offender_note = f"refused ({candidates} would leave <3 good channels)"
-                    info(f"  {candidates} exceed the share threshold, but dropping them would leave "
-                         "< 3 good channels. Refusing - inspect this recording manually.")
-                else:
-                    for ch in candidates:
-                        if ch not in raw_after_ica.info["bads"]:
-                            raw_after_ica.info["bads"].append(ch)
-                    high_offender_flagged = candidates
-                    high_offender_note = "; ".join(f"{c}={shares[c]:.0f}%" for c in candidates)
-                    info(f"  Flagging {candidates} ({high_offender_note}) as high offenders; "
-                         f"action={action}; re-running.")
-                    if action == "exclude":
-                        res = _process(raw_after_ica.copy(), exclude_no_interp=candidates)
-                    else:
-                        res = _process(raw_after_ica.copy())
-
     # PASS 2: exponent-based channel rejection (reject on the FINAL exponent)
     exponent_flagged: List[str] = []
     if detect_bad_exp:
@@ -351,11 +298,6 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
         excluded_channels=";".join(excluded_channels) if excluded_channels else "",
         exponent_flagged_channels=";".join(exponent_flagged) if exponent_flagged else "",
         exponent_reject_threshold=exp_threshold if detect_bad_exp else "",
-        high_offender_rejection=bool(ho.get("enabled", False)),
-        high_offender_share_threshold=ho.get("share_threshold") if ho.get("enabled") else "",
-        high_offender_min_reject_pct=ho.get("min_reject_pct") if ho.get("enabled") else "",
-        high_offender_action=ho.get("action") if ho.get("enabled") else "",
-        high_offender_flagged_channels=high_offender_note,
         channel_screen=bool(cs.get("enabled", False)),
         channel_screen_share_pct=cs.get("min_epoch_share_pct") if cs.get("enabled") else "",
         screened_channels=";".join(screened_channels) if screened_channels else "",
@@ -438,8 +380,6 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
 
     step("DONE (this file)")
     info(f"  Channels analyzed: {len(analyzed_channels)} ({analyzed_channels})")
-    if high_offender_flagged:
-        info(f"  High-offender channels ({ho.get('action')}d): {high_offender_flagged}")
     if exponent_flagged:
         info(f"  Flagged for low aperiodic exponent (< {exp_threshold}): {exponent_flagged}")
     if interpolated_channels:

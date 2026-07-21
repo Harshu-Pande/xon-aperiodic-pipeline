@@ -244,7 +244,7 @@ class App:
         canvas.configure(yscrollcommand=sb.set)
         canvas.pack(side="left", fill="both", expand=True); sb.pack(side="right", fill="y")
 
-        A = self.cfg.section("artifacts"); ho = self.cfg.section("high_offender")
+        A = self.cfg.section("artifacts")
         er = self.cfg.section("exponent_rejection"); an = self.cfg.section("analysis")
         cs = self.cfg.section("channel_screen")
         fl = self.cfg.section("filter"); ep = self.cfg.section("epoch"); cr = self.cfg.section("crop")
@@ -318,14 +318,6 @@ class App:
               "Drop a channel whose final exponent is implausibly flat (muscle). Mentor-endorsed.")
         num(g, "exponent_rejection.threshold", "Exponent threshold", er.get("threshold", 0.5),
             "Channels below this exponent are treated as artifact.")
-        check(g, "high_offender.enabled", "High-offender channel rejection", ho.get("enabled", False),
-              "If one channel causes most of a session's rejections, drop/interpolate just it.")
-        num(g, "high_offender.share_threshold", "Offender share (%)", ho.get("share_threshold", 50.0),
-            "A channel above this share of rejected epochs is the culprit.")
-        num(g, "high_offender.min_reject_pct", "Only if rejection ≥ (%)", ho.get("min_reject_pct", 15.0),
-            "Safety gate: only act when the session is already noisy.")
-        combo(g, "high_offender.action", "Action", ["interpolate", "exclude"],
-              ho.get("action", "interpolate"), "Rebuild from neighbours, or drop entirely.")
 
         g = group("Spectrum (FOOOF)")
         num(g, "fooof.freq_range.0", "Fit low (Hz)", fr[0], "Lower bound of the 1/f fit band (Donoghue 2020).")
