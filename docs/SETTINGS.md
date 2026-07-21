@@ -35,6 +35,8 @@ file is always the source of truth for defaults.
 | Not crop the recording | `crop.start_sec`, `crop.stop_sec` → `--set crop.start_sec=null` | `60`, `1860` |
 | Files have no `.xdf` extension | `io.file_glob` → `--set io.file_glob='*'` | `*.xdf` |
 | Change how filenames map to participant/session/condition | `metadata.patterns.*` | see file |
+| Which condition the scalp-region analysis uses | `stats.region_condition` (`rest`/`movie`/`null`) | `rest` |
+| Plot exponent by age & sex | `stats.demographics_csv` → path to a CSV (participant, age, sex) | `null` |
 
 ## Turning on the high-offender toggle (your feature)
 

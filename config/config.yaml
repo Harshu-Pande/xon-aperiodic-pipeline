@@ -233,6 +233,11 @@ stats:
   # Only trust (and plot) a recording length where at least this many recordings contribute.
   # Beyond it the sample collapses and the reliability estimate becomes noise.
   reliability_min_n: 8
+  # Which condition the scalp-region analysis uses ("rest", "movie", or null = all). Rest
+  # only, averaging each participant's two rest sessions, is the default.
+  region_condition: "rest"
+  # Optional demographics CSV (columns: participant, age, sex) to plot exponent by age/sex.
+  demographics_csv: null
   # Exclude recordings with less than this many minutes of CLEAN data from the cohort
   # statistics (0 = keep all). A few heavily-rejected sessions can be low-confidence;
   # setting e.g. 5 restricts stats to sessions with adequate data. Recommended to pre-register.

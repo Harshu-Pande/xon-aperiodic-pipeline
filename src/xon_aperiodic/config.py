@@ -100,6 +100,8 @@ DEFAULTS: Dict[str, Any] = {
         "reliability_icc_target": 0.75,
         "reliability_min_n": 8,     # only trust a duration where >= this many recordings contribute
         "min_clean_minutes": 0.0,   # exclude recordings with less clean data than this from stats (0 = keep all)
+        "region_condition": "rest", # which condition the scalp-region analysis uses (null = all)
+        "demographics_csv": None,   # optional CSV: participant, age, sex -> exponent-by-age/sex plots
     },
 }
 

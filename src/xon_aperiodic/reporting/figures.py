@@ -154,7 +154,8 @@ def regional_bar(pp_df, regional_test: dict, out_dir: str) -> Optional[str]:
     ax.set_ylabel("Aperiodic exponent")
     ax.set_xlabel("Scalp region")
     n = regional_test.get("n_participants", len(pp_df))
-    ax.set_title(f"Aperiodic exponent by scalp region (n={n} participants)")
+    cond = regional_test.get("condition", "rest")
+    ax.set_title(f"Aperiodic exponent by scalp region (n={n} participants, {cond} only, sessions averaged)")
     # annotate omnibus + significant post-hoc
     lines = []
     if regional_test.get("p_value") not in (None, ""):
@@ -173,86 +174,122 @@ def regional_bar(pp_df, regional_test: dict, out_dir: str) -> Optional[str]:
 
 
 def duration_overlay(results: List[Any], out_dir: str) -> Optional[str]:
-    """Overlay every recording's exponent-vs-minutes curve + the cohort median."""
-    trajs = [(r.subject_id, r.duration_df, getattr(r.metadata, "condition", "unknown"))
+    """Each recording's exponent-vs-minutes curve, coloured by PARTICIPANT; rest = solid,
+    movie = dashed. No cohort summary line."""
+    from matplotlib.lines import Line2D
+    trajs = [(r.subject_id, r.duration_df, getattr(r.metadata, "participant", ""),
+              getattr(r.metadata, "condition", "unknown"))
              for r in results if getattr(r, "duration_df", None) is not None
              and not r.duration_df.empty]
-    if len(trajs) < 1:
+    if not trajs:
         return None
-    fig, ax = plt.subplots(figsize=(8, 5))
-    all_curves = []
-    for sid, df, cond in trajs:
+    participants = sorted({p for _, _, p, _ in trajs if p})
+    cmap = plt.get_cmap("tab20" if len(participants) > 10 else "tab10")
+    pcolor = {p: cmap(i % cmap.N) for i, p in enumerate(participants)}
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    for sid, df, part, cond in trajs:
         df = df.sort_values("clean_minutes")
-        ax.plot(df["clean_minutes"], _num(df["exponent_all"]), color=_color(cond),
-                alpha=0.35, linewidth=1.0)
-        all_curves.append(df.set_index("clean_minutes")["exponent_all"])
-    if len(all_curves) >= 2:
-        grid = np.linspace(min(c.index.min() for c in all_curves),
-                           min(c.index.max() for c in all_curves), 40)
-        stacked = [np.interp(grid, c.index.values, pd.to_numeric(c.values, errors="coerce"))
-                   for c in all_curves]
-        med = np.median(np.array(stacked), axis=0)
-        ax.plot(grid, med, color="black", linewidth=2.5, label="cohort median")
-        ax.legend()
+        style = "--" if str(cond) == "movie" else "-"
+        ax.plot(df["clean_minutes"], _num(df["exponent_all"]),
+                color=pcolor.get(part, "#888888"), linestyle=style, alpha=0.85, linewidth=1.3)
+    part_handles = [Line2D([0], [0], color=pcolor[p], lw=2, label=p) for p in participants]
+    style_handles = [Line2D([0], [0], color="#555555", lw=2, linestyle="-", label="rest"),
+                     Line2D([0], [0], color="#555555", lw=2, linestyle="--", label="movie")]
+    leg1 = ax.legend(handles=part_handles, title="participant", fontsize=7,
+                     ncol=2, loc="lower right")
+    ax.add_artist(leg1)
+    ax.legend(handles=style_handles, loc="upper left", fontsize=9)
     ax.set_xlabel("Clean data used (minutes)")
     ax.set_ylabel("Aperiodic exponent")
-    ax.set_title("Exponent estimate vs recording length (all recordings)")
+    ax.set_title("Exponent vs recording length — per recording (colour = participant)")
+    ax.grid(True, alpha=0.25)
     fig.tight_layout()
     p = os.path.join(out_dir, "fig_duration_overlay.png")
     fig.savefig(p, bbox_inches="tight"); plt.close(fig)
     return p
 
 
-def reliability_curve(reliab: dict, out_dir: str) -> Optional[str]:
-    """Split-half internal consistency and between-session ICC vs recording length.
-
-    Only the region where enough recordings contribute is drawn: past a certain length
-    only a handful of recordings are long enough (and test-retest needs a matched pair of
-    sessions), so the estimate there is noise, not signal. Plotting it would misleadingly
-    suggest reliability collapses with more data, when it is just a shrinking sample.
+def reliability_curve(reliab: dict, adj: dict, out_dir: str) -> Optional[str]:
+    """Two reliability curves vs recording length, both on a 0–1 scale:
+      * split-half internal consistency (odd vs even epochs) — kept;
+      * adjacent-minute ICC (1 vs 2 min, 2 vs 3 min …) — how fast the per-recording estimate
+        stops changing as data accumulates (replaces the between-session test-retest line).
     """
-    curve = reliab.get("curve")
-    if curve is None or len(curve) == 0:
+    curve = (reliab or {}).get("curve")
+    adj_curve = (adj or {}).get("curve")
+    have_sh = curve is not None and len(curve) > 0
+    have_adj = adj_curve is not None and len(adj_curve) > 0
+    if not have_sh and not have_adj:
         return None
-    min_n = int(reliab.get("min_n", 8))
-    m = pd.to_numeric(curve["minutes"], errors="coerce")
-    sh = pd.to_numeric(curve["split_half_reliability"], errors="coerce")
-    icc = pd.to_numeric(curve["test_retest_icc"], errors="coerce")
-    n_sh = pd.to_numeric(curve["n_split_half"], errors="coerce")
-    n_icc = pd.to_numeric(curve["n_icc"], errors="coerce")
-    sh_ok = sh.notna() & (n_sh >= min_n)     # only trustworthy points
-    icc_ok = icc.notna() & (n_icc >= min_n)
-    if not (sh_ok.any() or icc_ok.any()):
-        return None
-    sh_t = reliab.get("split_half_target", 0.90)
-    icc_t = reliab.get("icc_target", 0.75)
-
     fig, ax = plt.subplots(figsize=(8.5, 5))
-    if sh_ok.any():
-        ax.plot(m[sh_ok], sh[sh_ok], marker="o", color="#2a6f97", label="split-half (odd vs even)")
-        ax.axhline(sh_t, color="#2a6f97", linestyle=":", alpha=0.7)
-    if icc_ok.any():
-        ax.plot(m[icc_ok], icc[icc_ok], marker="s", color="#e07a5f",
-                label="test-retest ICC (session 1 vs 2)")
-        ax.axhline(icc_t, color="#e07a5f", linestyle=":", alpha=0.7)
-    for key, color in [("minutes_for_split_half", "#2a6f97"), ("minutes_for_good_icc", "#e07a5f")]:
-        v = reliab.get(key, "")
+    if have_sh:
+        min_n = int(reliab.get("min_n", 8))
+        m = pd.to_numeric(curve["minutes"], errors="coerce")
+        sh = pd.to_numeric(curve["split_half_reliability"], errors="coerce")
+        n_sh = pd.to_numeric(curve["n_split_half"], errors="coerce")
+        ok = sh.notna() & (n_sh >= min_n)
+        if ok.any():
+            ax.plot(m[ok], sh[ok], marker="o", color="#2a6f97", label="split-half (odd vs even)")
+            ax.axhline(reliab.get("split_half_target", 0.90), color="#2a6f97", linestyle=":", alpha=0.6)
+    if have_adj:
+        am = pd.to_numeric(adj_curve["minutes"], errors="coerce")
+        ai = pd.to_numeric(adj_curve["icc"], errors="coerce")
+        ok = ai.notna()
+        if ok.any():
+            ax.plot(am[ok], ai[ok], marker="s", color="#e07a5f",
+                    label="adjacent-minute ICC (1v2, 2v3, …)")
+        ax.axhline(adj.get("icc_target", 0.75), color="#e07a5f", linestyle=":", alpha=0.6)
+        v = adj.get("minutes_to_stable_icc", "")
         if v not in ("", None):
-            ax.axvline(float(v), color=color, linestyle="--", alpha=0.6)
-    # x-limit to the trustworthy region (a little headroom)
-    max_min = reliab.get("max_trustworthy_minutes", "")
-    if max_min not in ("", None):
-        ax.set_xlim(0, float(max_min) * 1.05)
+            ax.axvline(float(v), color="#e07a5f", linestyle="--", alpha=0.6,
+                       label=f"estimate stable by {float(v):.0f} min")
     ax.set_ylim(0, 1.02)
     ax.set_xlabel("Clean data used (minutes)")
     ax.set_ylabel("Reliability")
     ax.set_title("Reliability of the aperiodic exponent vs recording length")
-    ax.text(0.5, 1.015, f"shown only where ≥ {min_n} recordings contribute",
-            transform=ax.transAxes, ha="center", va="bottom", fontsize=9, color="#6b7c93")
     ax.legend(loc="lower right")
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
     p = os.path.join(out_dir, "fig_reliability_by_duration.png")
+    fig.savefig(p, bbox_inches="tight"); plt.close(fig)
+    return p
+
+
+def group_exponent_curve(group_exp: dict, out_dir: str) -> Optional[str]:
+    """Group-mean aperiodic exponent (± SEM) vs cumulative recording length, by condition
+    (rest solid, movie dashed). Shows how the group exponent rises and approaches an
+    asymptote as more clean data is used."""
+    if not group_exp:
+        return None
+    bycond = group_exp.get("by_condition", {}) or {}
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    plotted = False
+    for cond, style in [("rest", "-"), ("movie", "--")]:
+        df = bycond.get(cond)
+        if df is None or len(df) == 0:
+            continue
+        m = pd.to_numeric(df["minutes"], errors="coerce")
+        mean = pd.to_numeric(df["mean"], errors="coerce")
+        sem = pd.to_numeric(df["sem"], errors="coerce").fillna(0)
+        ax.plot(m, mean, style, color=_color(cond), linewidth=2.2, label=f"{cond} (mean ± SEM)")
+        ax.fill_between(m, mean - sem, mean + sem, color=_color(cond), alpha=0.15)
+        plotted = True
+    ov = group_exp.get("overall")
+    if ov is not None and len(ov):
+        ax.plot(pd.to_numeric(ov["minutes"], errors="coerce"),
+                pd.to_numeric(ov["mean"], errors="coerce"),
+                color="#333333", linewidth=1.0, alpha=0.5, label="all recordings")
+        plotted = True
+    if not plotted:
+        plt.close(fig)
+        return None
+    ax.set_xlabel("Clean data used (minutes)")
+    ax.set_ylabel("Aperiodic exponent (group mean)")
+    ax.set_title("How the group exponent changes with recording length")
+    ax.legend(loc="lower right")
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+    p = os.path.join(out_dir, "fig_group_exponent_by_duration.png")
     fig.savefig(p, bbox_inches="tight"); plt.close(fig)
     return p
 
@@ -311,27 +348,84 @@ def bland_altman(master: pd.DataFrame, out_dir: str) -> Optional[str]:
         ax.axhline(bias - 1.96 * sd, color="#e63946", linestyle="--")
         ax.axhline(0, color="gray", linewidth=0.6)
         ax.set_title(f"{cond} (n={len(a)})")
-        ax.set_xlabel("Mean of the two sessions")
-        ax.set_ylabel("Session 1 − Session 2")
+        ax.set_xlabel("Mean aperiodic exponent (sessions 1 & 2)")
+        ax.set_ylabel("Exponent difference (session 1 − session 2)")
         ax.legend(fontsize=8)
-    fig.suptitle("Test–retest agreement (Bland–Altman)")
+    fig.suptitle("Test–retest agreement of the aperiodic exponent (Bland–Altman)")
     fig.tight_layout()
     p = os.path.join(out_dir, "fig_bland_altman.png")
     fig.savefig(p, bbox_inches="tight"); plt.close(fig)
     return p
 
 
+def exponent_by_age(demo: dict, out_dir: str) -> Optional[str]:
+    t = (demo or {}).get("table")
+    if t is None or "age" not in getattr(t, "columns", []):
+        return None
+    d = t.copy(); d["age"] = _num(d["age"]); d["e"] = _num(d["AVERAGE_exponent"])
+    d = d.dropna(subset=["age", "e"])
+    if len(d) < 3:
+        return None
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    ax.scatter(d["age"], d["e"], s=60, color="#2a6f97", edgecolor="white", zorder=3)
+    try:
+        z = np.polyfit(d["age"].values, d["e"].values, 1)
+        xs = np.linspace(d["age"].min(), d["age"].max(), 50)
+        ax.plot(xs, z[0] * xs + z[1], "--", color="#e07a5f")
+    except Exception:
+        pass
+    r, p = demo.get("age_pearson_r"), demo.get("age_pearson_p")
+    title = "Aperiodic exponent vs age"
+    if r is not None:
+        title += f"  (r={r}, p={p}, n={demo.get('age_n')})"
+    ax.set_title(title); ax.set_xlabel("Age (years)")
+    ax.set_ylabel("Aperiodic exponent (per participant)")
+    ax.grid(True, alpha=0.25); fig.tight_layout()
+    p_ = os.path.join(out_dir, "fig_exponent_by_age.png")
+    fig.savefig(p_, bbox_inches="tight"); plt.close(fig)
+    return p_
+
+
+def exponent_by_sex(demo: dict, out_dir: str) -> Optional[str]:
+    t = (demo or {}).get("table")
+    if t is None or "sex" not in getattr(t, "columns", []):
+        return None
+    groups = {str(s): _num(g["AVERAGE_exponent"]).dropna().values
+              for s, g in t.groupby("sex") if str(s).strip()}
+    groups = {k: v for k, v in groups.items() if len(v) >= 1}
+    if len(groups) < 2:
+        return None
+    fig, ax = plt.subplots(figsize=(6, 5))
+    rng = np.random.default_rng(0)
+    for i, (s, y) in enumerate(groups.items()):
+        ax.scatter(rng.normal(i, 0.05, len(y)), y, s=55, alpha=0.8, edgecolor="white", zorder=3)
+        if len(y) >= 2:
+            ax.boxplot(y, positions=[i], widths=0.5, showfliers=False)
+    ax.set_xticks(range(len(groups))); ax.set_xticklabels(list(groups.keys()))
+    p = demo.get("sex_mannwhitney_p")
+    ax.set_title("Aperiodic exponent by sex" + (f"  (Mann–Whitney p={p})" if p is not None else ""))
+    ax.set_ylabel("Aperiodic exponent (per participant)"); ax.set_xlabel("Sex")
+    ax.grid(True, alpha=0.25, axis="y"); fig.tight_layout()
+    p_ = os.path.join(out_dir, "fig_exponent_by_sex.png")
+    fig.savefig(p_, bbox_inches="tight"); plt.close(fig)
+    return p_
+
+
 def build_all(master: pd.DataFrame, results: List[Any], regional_pp, regional_test: dict,
               out_dir: str, quiet: str = "rest", noisy: str = "movie",
-              reliab: Optional[dict] = None) -> Dict[str, str]:
+              reliab: Optional[dict] = None, adj: Optional[dict] = None,
+              group_exp: Optional[dict] = None, demo: Optional[dict] = None) -> Dict[str, str]:
     figs: Dict[str, Optional[str]] = {
         "exponent_by_condition": exponent_by_condition(master, out_dir),
         "test_retest": test_retest_scatter(master, out_dir),
         "bland_altman": bland_altman(master, out_dir),
         "condition_paired": condition_paired(master, out_dir, quiet, noisy),
         "regional": regional_bar(regional_pp, regional_test or {}, out_dir),
-        "reliability_by_duration": reliability_curve(reliab or {}, out_dir),
+        "reliability_by_duration": reliability_curve(reliab or {}, adj or {}, out_dir),
+        "group_exponent_by_duration": group_exponent_curve(group_exp or {}, out_dir),
         "duration_overlay": duration_overlay(results, out_dir),
         "quality": quality_scatter(master, out_dir),
+        "exponent_by_age": exponent_by_age(demo or {}, out_dir),
+        "exponent_by_sex": exponent_by_sex(demo or {}, out_dir),
     }
     return {k: v for k, v in figs.items() if v}

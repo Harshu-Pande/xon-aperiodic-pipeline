@@ -244,12 +244,20 @@ def regional_summary(master: pd.DataFrame, regions: Dict[str, List[str]]) -> pd.
     return df
 
 
-def _regional_by_participant(master: pd.DataFrame, regions: Dict[str, List[str]]) -> pd.DataFrame:
+def _regional_by_participant(master: pd.DataFrame, regions: Dict[str, List[str]],
+                             condition: Optional[str] = "rest") -> pd.DataFrame:
     """One row per PARTICIPANT (mean region exponent across their recordings), so the
-    regional test uses independent subjects instead of pseudoreplicating recordings."""
+    regional test uses independent subjects instead of pseudoreplicating recordings.
+
+    ``condition`` restricts which recordings feed the average (default 'rest' only; the two
+    rest sessions per participant are then averaged). Set to None to use all recordings."""
     d = _ok(master)
     if d.empty or "participant" not in d.columns:
         return pd.DataFrame()
+    if condition is not None and "condition" in d.columns:
+        d = d[d["condition"] == condition]
+        if d.empty:
+            return pd.DataFrame()
     rows = []
     for _, rec in d.iterrows():
         row = {"participant": rec.get("participant", "")}
@@ -278,12 +286,14 @@ def _holm(pvals: List[float]) -> List[float]:
     return out
 
 
-def regional_test(master: pd.DataFrame, regions: Dict[str, List[str]]) -> Dict[str, Any]:
+def regional_test(master: pd.DataFrame, regions: Dict[str, List[str]],
+                  condition: Optional[str] = "rest") -> Dict[str, Any]:
     """Friedman omnibus + Holm-corrected pairwise Wilcoxon signed-rank across scalp regions,
-    at the PARTICIPANT level (independent subjects — no pseudoreplication)."""
+    at the PARTICIPANT level (independent subjects — no pseudoreplication). Uses ``condition``
+    recordings only (default 'rest', averaged across sessions)."""
     if _sps is None:
         return dict(note="scipy unavailable")
-    pp = _regional_by_participant(master, regions)
+    pp = _regional_by_participant(master, regions, condition=condition)
     names = list(regions.keys())
     if len(pp) < 3 or len(names) < 3:
         return dict(note=f"need >=3 participants with all regions (have {len(pp)})")
@@ -291,7 +301,8 @@ def regional_test(master: pd.DataFrame, regions: Dict[str, List[str]]) -> Dict[s
         stat, p = _sps.friedmanchisquare(*[pp[r].values for r in names])
     except Exception as exc:
         return dict(note=f"Friedman failed: {exc}")
-    out = dict(test="Friedman (participant-level)", regions=names, n_participants=int(len(pp)),
+    out = dict(test="Friedman (participant-level)", condition=(condition or "all"),
+               regions=names, n_participants=int(len(pp)),
                statistic=round(float(stat), 4), p_value=round(float(p), 4),
                region_means={r: round(float(pp[r].mean()), 4) for r in names})
     # post-hoc pairwise (only if omnibus is at least suggestive)
@@ -463,10 +474,151 @@ def _safe_float(x: Any) -> Optional[float]:
 # --------------------------------------------------------------------------
 # assemble a text summary
 # --------------------------------------------------------------------------
+def _duration_matrix(results: List[Any], step_min: float = 1.0):
+    """Interpolate every recording's exponent-vs-clean-minutes curve onto a common minute
+    grid (1, 2, 3, … min). Returns (grid, rows) where each row has participant/condition/
+    session and a values array aligned to the grid (NaN past that recording's length)."""
+    curves = []
+    max_min = 0.0
+    for r in results:
+        d = getattr(r, "duration_df", None)
+        meta = getattr(r, "metadata", None)
+        if d is None or getattr(d, "empty", True) or "exponent_all" not in d.columns:
+            continue
+        d = d.dropna(subset=["exponent_all"]).sort_values("clean_minutes")
+        if len(d) < 2:
+            continue
+        x = d["clean_minutes"].values.astype(float)
+        y = pd.to_numeric(d["exponent_all"], errors="coerce").values.astype(float)
+        curves.append((meta, x, y))
+        max_min = max(max_min, float(x.max()))
+    if not curves or max_min < step_min:
+        return None
+    grid = np.arange(step_min, max_min + 1e-9, step_min)
+    rows = []
+    for meta, x, y in curves:
+        vals = np.full(len(grid), np.nan)
+        ok = np.isfinite(y)
+        for i, L in enumerate(grid):
+            if x.min() - 1e-9 <= L <= x.max() + 1e-9 and ok.sum() >= 2:
+                vals[i] = float(np.interp(L, x[ok], y[ok]))
+        rows.append(dict(participant=getattr(meta, "participant", ""),
+                         condition=getattr(meta, "condition", ""),
+                         session=getattr(meta, "session", ""), values=vals))
+    return grid, rows
+
+
+def adjacent_duration_icc(results: List[Any], step_min: float = 1.0, icc_target: float = 0.75,
+                          min_n: int = 8) -> Dict[str, Any]:
+    """How much the per-recording exponent changes as clean data accumulates, expressed as
+    the ICC(2,1) between adjacent cumulative durations (1 vs 2 min, 2 vs 3 min, …) across
+    recordings. As the estimate stops changing, this ICC approaches 1; the length at which
+    it first reaches ``icc_target`` and stays is when the estimate has stabilised."""
+    dm = _duration_matrix(results, step_min)
+    if dm is None:
+        return dict(note="no duration curves available", curve=pd.DataFrame())
+    grid, rows = dm
+    M = np.array([r["values"] for r in rows])          # recordings x grid
+    out_rows = []
+    for i in range(len(grid) - 1):
+        a, b = M[:, i], M[:, i + 1]
+        mask = np.isfinite(a) & np.isfinite(b)
+        if mask.sum() >= min_n:
+            icc = _icc_2_1(np.column_stack([a[mask], b[mask]]))
+            out_rows.append(dict(minutes=round(float(grid[i + 1]), 2),
+                                 icc=round(icc, 4) if icc is not None else np.nan,
+                                 n=int(mask.sum())))
+    curve = pd.DataFrame(out_rows)
+    minutes_to_stable = ""
+    if not curve.empty:
+        vals = pd.to_numeric(curve["icc"], errors="coerce").values
+        mins = curve["minutes"].values
+        for i in range(len(vals)):
+            if np.all(vals[i:] >= icc_target):
+                minutes_to_stable = float(mins[i])
+                break
+    return dict(curve=curve, icc_target=icc_target, minutes_to_stable_icc=minutes_to_stable,
+                step_min=step_min)
+
+
+def group_exponent_by_duration(results: List[Any], step_min: float = 1.0) -> Dict[str, Any]:
+    """Group-mean aperiodic exponent (± SEM) at each cumulative duration, overall and split
+    by condition (rest/movie). Shows how the group exponent changes with recording length and
+    where it approaches an asymptote."""
+    dm = _duration_matrix(results, step_min)
+    if dm is None:
+        return dict(note="no duration curves available")
+    grid, rows = dm
+
+    def _summ(sel):
+        M = np.array([r["values"] for r in sel]) if sel else np.empty((0, len(grid)))
+        out = []
+        for i, L in enumerate(grid):
+            col = M[:, i] if M.size else np.array([])
+            col = col[np.isfinite(col)]
+            if len(col) >= 1:
+                out.append(dict(minutes=round(float(L), 2), mean=round(float(col.mean()), 4),
+                                sem=round(float(col.std(ddof=1) / np.sqrt(len(col))), 4) if len(col) > 1 else 0.0,
+                                n=int(len(col))))
+        return pd.DataFrame(out)
+
+    conds = sorted({r["condition"] for r in rows if r["condition"]})
+    return dict(overall=_summ(rows),
+                by_condition={c: _summ([r for r in rows if r["condition"] == c]) for c in conds})
+
+
+def demographics_analysis(master: pd.DataFrame, demo_csv, condition: Optional[str] = "rest"
+                          ) -> Dict[str, Any]:
+    """Merge a demographics CSV (participant, age, sex) with each participant's mean exponent
+    (from ``condition`` recordings) and test exponent~age (Pearson) and exponent~sex (group
+    comparison). Returns a table + stats, or a note if no/invalid CSV."""
+    if not demo_csv:
+        return dict(note="no demographics CSV provided")
+    try:
+        demo = pd.read_csv(demo_csv, dtype=str)
+    except Exception as exc:
+        return dict(note=f"could not read demographics CSV ({exc})")
+    demo.columns = [c.strip().lower() for c in demo.columns]
+    if "participant" not in demo.columns:
+        return dict(note="demographics CSV needs a 'participant' column")
+    d = _ok(master)
+    if condition and "condition" in d.columns:
+        d = d[d["condition"] == condition]
+    if d.empty:
+        return dict(note="no recordings to attach demographics to")
+    pexp = d.groupby("participant")["AVERAGE_exponent"].mean().reset_index()
+    merged = pexp.merge(demo, on="participant", how="inner")
+    if merged.empty:
+        return dict(note="demographics did not match any participant id")
+    out = dict(n=int(len(merged)), table=merged)
+    if "age" in merged.columns:
+        merged["age"] = _num(merged["age"])
+        a = merged.dropna(subset=["age", "AVERAGE_exponent"])
+        if _sps is not None and len(a) >= 3 and a["age"].std() > 0:
+            r, p = _sps.pearsonr(a["age"].values, a["AVERAGE_exponent"].values)
+            out["age_pearson_r"] = round(float(r), 4)
+            out["age_pearson_p"] = round(float(p), 4)
+            out["age_n"] = int(len(a))
+    if "sex" in merged.columns:
+        groups = {str(s): g["AVERAGE_exponent"].astype(float).values
+                  for s, g in merged.groupby("sex") if str(s).strip()}
+        out["sex_means"] = {k: round(float(np.mean(v)), 4) for k, v in groups.items()}
+        if _sps is not None and len(groups) == 2:
+            vals = list(groups.values())
+            if all(len(v) >= 2 for v in vals):
+                try:
+                    u, p = _sps.mannwhitneyu(vals[0], vals[1], alternative="two-sided")
+                    out["sex_mannwhitney_p"] = round(float(p), 4)
+                except Exception:
+                    pass
+    return out
+
+
 def compute_all(master: pd.DataFrame, results: List[Any], regions: Dict[str, List[str]],
                 quiet: str, noisy: str, split_half_target: float = 0.90,
                 icc_target: float = 0.75, min_n: int = 8,
-                min_clean_minutes: float = 0.0) -> Dict[str, Any]:
+                min_clean_minutes: float = 0.0, region_condition: str = "rest",
+                demographics_csv=None) -> Dict[str, Any]:
     n_before = len(master)
     excluded = []
     if min_clean_minutes and min_clean_minutes > 0 and "clean_minutes" in master.columns:
@@ -481,8 +633,12 @@ def compute_all(master: pd.DataFrame, results: List[Any], regions: Dict[str, Lis
         reliability=reliability(master),                       # full-length test-retest ICC
         contrast=condition_contrast(master, quiet, noisy),
         regional=regional_summary(master, regions),
-        regional_test=regional_test(master, regions),
-        regional_pp=_regional_by_participant(master, regions),
+        regional_test=regional_test(master, regions, condition=region_condition),
+        regional_pp=_regional_by_participant(master, regions, condition=region_condition),
+        region_condition=region_condition,
         duration_reliability=reliability_by_duration(results, split_half_target, icc_target, min_n=min_n),
+        adjacent_icc=adjacent_duration_icc(results, step_min=1.0, icc_target=icc_target, min_n=min_n),
+        group_exponent_duration=group_exponent_by_duration(results, step_min=1.0),
         stabilization=stabilization_summary(master),
+        demographics=demographics_analysis(master, demographics_csv, condition=region_condition),
     )

@@ -108,9 +108,12 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
     icc_target = float(cfg.get("stats", "reliability_icc_target", 0.75))
     min_n = int(cfg.get("stats", "reliability_min_n", 8))
     min_clean = float(cfg.get("stats", "min_clean_minutes", 0.0))
+    region_cond = cfg.get("stats", "region_condition", "rest")
+    demo_csv = cfg.get("stats", "demographics_csv", None)
+    demo_path = str(cfg.resolve_path(demo_csv)) if demo_csv else None
 
     st = S.compute_all(master_df, results, regions, quiet, noisy, sh_target, icc_target,
-                       min_n, min_clean)
+                       min_n, min_clean, region_cond, demo_path)
 
     # organised sub-folders: figures/ and statistics/ (per_recording/ is written by the pipeline)
     fig_dir = out_dir / "figures"; fig_dir.mkdir(parents=True, exist_ok=True)
@@ -146,7 +149,9 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
         paths["stats_summary"] = str(p)
 
     figs = F.build_all(master_df, results, st["regional_pp"], st["regional_test"],
-                       str(fig_dir), quiet, noisy, reliab=rel)
+                       str(fig_dir), quiet, noisy, reliab=rel,
+                       adj=st.get("adjacent_icc"), group_exp=st.get("group_exponent_duration"),
+                       demo=st.get("demographics"))
     paths.update({f"fig_{k}": v for k, v in figs.items()})
 
     # one-page gallery of every recording's diagnostic figure
@@ -155,6 +160,24 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
         info(f"Diagnostics gallery: {paths['gallery']}")
     except Exception as exc:
         info(f"Gallery skipped ({exc}).")
+
+    # demographics section HTML (only if a CSV was provided and matched)
+    demo = st.get("demographics", {}) or {}
+    if demo.get("note"):
+        demo_html = (f"<p class='muted'>Not shown — {html.escape(str(demo['note']))}. To enable, set "
+                     "<code>stats.demographics_csv</code> to a CSV with columns participant, age, sex.</p>")
+    else:
+        bits = []
+        if demo.get("age_pearson_r") is not None:
+            bits.append(f"Exponent vs age: r = {demo['age_pearson_r']}, p = {demo['age_pearson_p']} "
+                        f"(n = {demo.get('age_n')}).")
+        if demo.get("sex_means"):
+            sm = ", ".join(f"{k}: {v}" for k, v in demo["sex_means"].items())
+            bits.append("Mean exponent by sex — " + sm +
+                        (f"; Mann–Whitney p = {demo['sex_mannwhitney_p']}" if demo.get("sex_mannwhitney_p") is not None else ""))
+        demo_html = ("<p>" + " ".join(bits) + f" (n = {demo.get('n')} participants)</p>"
+                     + _img(figs.get("exponent_by_age", ""), out_dir)
+                     + _img(figs.get("exponent_by_sex", ""), out_dir))
 
     # cohort HTML report
     n_ok = int((master_df.get("status", pd.Series(dtype=str)).astype(str) != "error").sum()) if not master_df.empty else 0
@@ -214,30 +237,38 @@ non-significant result as "inconclusive," not "no difference."</p>
 test-retest reliability and clean-data yield are better in rest than movie (section 2) — the
 headset still works during the movie but with lower reliability and more rejected data.</p>
 
-<h2>4. Scalp region</h2>
-<p>Computed at the <b>participant level</b> (one value per person, averaged over their
-recordings) to avoid pseudoreplication — pooling all recordings would treat non-independent
-sessions/conditions as separate subjects and overstate significance. Omnibus Friedman test
-plus Holm-corrected pairwise Wilcoxon signed-rank.</p>
+<h2>4. Scalp region (rest only)</h2>
+<p>Uses <b>rest recordings only</b>, at the <b>participant level</b> — one value per person,
+averaging that person's two rest sessions — to avoid pseudoreplication (pooling all
+recordings would treat non-independent sessions/conditions as separate subjects and overstate
+significance). Omnibus Friedman test plus Holm-corrected pairwise Wilcoxon signed-rank.</p>
 {_regional_test_html(st['regional_test'])}
 {_img(figs.get('regional',''), out_dir)}
 <p class='muted'>Caveat: with 7 channels and the device ear (A2) reference, regional
 differences are partly reference-dependent; treat the spatial pattern as suggestive and
 confirm against a reference-robust montage before interpreting it as physiology.</p>
 
-<h2>5. How few minutes are enough? (reliability vs recording length)</h2>
-<p>We estimate the exponent using increasing amounts of clean data and ask how reliable it
-becomes. Two standard measures: <b>split-half internal consistency</b> (odd vs even epochs,
-Spearman-Brown corrected; target &ge; {sh_target}) and <b>between-session test-retest ICC</b>
-(session&nbsp;1 vs session&nbsp;2; target &ge; {icc_target} = "good"). The shortest recording
-length that reaches each target is the evidence-based answer to how few minutes are needed.</p>
-<p style='background:#fff8e6;border-left:4px solid #e9a23b;padding:8px 12px;border-radius:4px;font-size:.9rem'>
-<b>Reading this:</b> look at the <i>left</i> of the curve. The estimate is only shown where
-enough recordings contribute; at longer lengths only a few recordings are that long (and
-test-retest needs a matched pair of sessions), so the sample collapses and any dip there is
-noise, not a real loss of reliability.</p>
-{_dict_to_html({k: v for k, v in (st['duration_reliability'] or {}).items() if k != 'curve'})}
+<h2>5. How few minutes are enough? (exponent &amp; reliability vs recording length)</h2>
+<p>We recompute the exponent using increasing amounts of clean data (1&nbsp;min, 2&nbsp;min,
+…) and ask two things:</p>
+<p><b>(a) How does the exponent itself change, and when does it plateau?</b> The plot below
+shows the <b>group-mean exponent</b> vs recording length (rest solid, movie dashed). It rises
+over the first several minutes and then approaches an asymptote — the point past which more
+data barely changes the group value.</p>
+{_img(figs.get('group_exponent_by_duration',''), out_dir)}
+<p><b>(b) When does the estimate stabilise / how reliable is it?</b> Two 0–1 curves:
+<b>split-half internal consistency</b> (odd vs even epochs; target &ge; {sh_target}) stays
+high throughout, and the <b>adjacent-minute ICC</b> — the agreement between the estimate at
+one length and the next (1 vs 2 min, 2 vs 3 min …) — approaches 1 once adding a minute stops
+changing the per-person estimate. The length where it settles is the data-driven "enough."</p>
 {_img(figs.get('reliability_by_duration',''), out_dir)}
+<p style='background:#eef4f8;border-left:4px solid #2a6f97;padding:8px 12px;border-radius:4px;font-size:.9rem'>
+Adjacent-minute ICC stabilises by
+<b>{(st.get('adjacent_icc') or {}).get('minutes_to_stable_icc','—')} min</b>; the group
+exponent asymptote is visible in the plot above.</p>
+<h3 style='font-size:1.05rem'>Every recording's curve (coloured by participant)</h3>
+<p>Each recording's exponent as clean data accumulates — one colour per participant, rest
+solid, movie dashed.</p>
 {_img(figs.get('duration_overlay',''), out_dir)}
 <h3 style='font-size:1.05rem'>Per-recording: when does each person's estimate settle?</h3>
 <p>Each recording's duration-curve plot (in per_recording/) marks two <i>different</i> "how
@@ -263,6 +294,9 @@ work). The full curve is in stats_reliability_by_duration.csv.</p>
 <p class='muted'>See <b>gallery.html</b> for a one-page contact sheet of every recording's
 diagnostic figure. Granular per-recording outputs are in <b>per_recording/</b>, figures in
 <b>figures/</b>, statistics in <b>statistics/</b>.</p>
+
+<h2>6. Demographics (age &amp; sex)</h2>
+{demo_html}
 
 <h2>Limitations &amp; how to read this</h2>
 <ul style='font-size:.9rem;color:#33475b'>
