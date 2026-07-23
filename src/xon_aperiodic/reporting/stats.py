@@ -668,6 +668,12 @@ def compute_all(master: pd.DataFrame, results: List[Any], regions: Dict[str, Lis
         regional=regional_summary(master, regions),
         regional_test=regional_test(master, regions, condition=region_condition),
         regional_pp=_regional_by_participant(master, regions, condition=region_condition),
+        # per-condition participant-level regional exponents + tests, for the rest-vs-movie
+        # two-line regional figure
+        regional_by_condition={c: _regional_by_participant(master, regions, condition=c)
+                               for c in (quiet, noisy)},
+        regional_tests_by_condition={c: regional_test(master, regions, condition=c)
+                                     for c in (quiet, noisy)},
         region_condition=region_condition,
         duration_reliability=reliability_by_duration(results, split_half_target, icc_target, min_n=min_n),
         adjacent_icc=adjacent_duration_icc(results, step_min=1.0, icc_target=icc_target, min_n=min_n),

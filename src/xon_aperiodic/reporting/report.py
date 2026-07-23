@@ -31,11 +31,13 @@ def _dict_to_html(d: Dict[str, Any]) -> str:
     return f"<table class='tbl'>{rows}</table>"
 
 
-def _regional_test_html(rt: dict) -> str:
+def _one_regional_test_html(rt: dict, label: str = "") -> str:
     if not rt or rt.get("note"):
-        return f"<p class='muted'>{html.escape(str(rt.get('note', 'unavailable')))}</p>"
+        note = html.escape(str(rt.get('note', 'unavailable'))) if rt else 'unavailable'
+        return f"<p class='muted'>{html.escape(label)+': ' if label else ''}{note}</p>"
     means = rt.get("region_means", {})
-    head = (f"<p><b>Friedman</b> (n={rt.get('n_participants')} participants): "
+    tag = f"<b>{html.escape(label)}</b> — " if label else ""
+    head = (f"<p>{tag}<b>Friedman</b> (n={rt.get('n_participants')} participants): "
             f"χ²={rt.get('statistic')}, p={rt.get('p_value')}. "
             f"Means: " + ", ".join(f"{k} {v}" for k, v in means.items()) + ".</p>")
     rows = "".join(
@@ -46,6 +48,31 @@ def _regional_test_html(rt: dict) -> str:
     tbl = (f"<table class='tbl'><tr><th>pair</th><th>mean diff</th><th>p (raw)</th>"
            f"<th>p (Holm)</th><th></th></tr>{rows}</table>") if rows else ""
     return head + tbl
+
+
+def _regional_tests_html(tests_by_cond: dict, order=("rest", "movie")) -> str:
+    """Show the participant-level Friedman result for each condition (rest and movie)."""
+    if not tests_by_cond:
+        return "<p class='muted'>unavailable</p>"
+    blocks = [_one_regional_test_html(tests_by_cond.get(c), label=c)
+              for c in order if c in tests_by_cond]
+    return "".join(blocks) or "<p class='muted'>unavailable</p>"
+
+
+def _img_row(paths: List[str], out_dir: Path) -> str:
+    """Two or more figures side by side (wrapping on narrow screens / print)."""
+    cells = ""
+    for p in paths:
+        if not p:
+            continue
+        rel = os.path.relpath(p, out_dir)
+        cells += (f"<figure style='flex:1 1 340px;margin:6px;min-width:300px'>"
+                  f"<img src='{html.escape(rel)}' "
+                  "style='width:100%;border:1px solid #e6e6e6;border-radius:6px'></figure>")
+    if not cells:
+        return ""
+    return (f"<div style='display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start'>"
+            f"{cells}</div>")
 
 
 def _img(path: str, out_dir: Path) -> str:
@@ -151,7 +178,9 @@ def build_cohort_outputs(cfg: Config, master_df: pd.DataFrame, results: List[Any
     figs = F.build_all(master_df, results, st["regional_pp"], st["regional_test"],
                        str(fig_dir), quiet, noisy, reliab=rel,
                        adj=st.get("adjacent_icc"), group_exp=st.get("group_exponent_duration"),
-                       demo=st.get("demographics"))
+                       demo=st.get("demographics"), regions=regions,
+                       regional_by_cond=st.get("regional_by_condition"),
+                       regional_tests_by_cond=st.get("regional_tests_by_condition"))
     paths.update({f"fig_{k}": v for k, v in figs.items()})
 
     # one-page gallery of every recording's diagnostic figure
@@ -237,16 +266,22 @@ non-significant result as "inconclusive," not "no difference."</p>
 test-retest reliability and clean-data yield are better in rest than movie (section 2) — the
 headset still works during the movie but with lower reliability and more rejected data.</p>
 
-<h2>4. Scalp region (rest only)</h2>
-<p>Uses <b>rest recordings only</b>, at the <b>participant level</b> — one value per person,
-averaging that person's two rest sessions — to avoid pseudoreplication (pooling all
-recordings would treat non-independent sessions/conditions as separate subjects and overstate
-significance). Omnibus Friedman test plus Holm-corrected pairwise Wilcoxon signed-rank.</p>
-{_regional_test_html(st['regional_test'])}
-{_img(figs.get('regional',''), out_dir)}
+<h2>4. Scalp region (rest vs movie)</h2>
+<p>Aperiodic exponent across the three scalp regions the Xon covers, shown for
+<b>both conditions</b> — <span style='color:#2a6f97;font-weight:600'>rest (solid)</span> and
+<span style='color:#e07a5f;font-weight:600'>movie (dashed)</span>, consistent with the colour
+coding elsewhere in this report. The head at left shows which 10-20 sites the headset records,
+coloured by region (frontal / central / parietal); the same region colours tint the plot's
+x-axis. Values are at the <b>participant level</b> — one value per person per condition,
+averaging that person's sessions — to avoid pseudoreplication. Each condition gets its own
+omnibus Friedman test plus Holm-corrected pairwise Wilcoxon signed-rank.</p>
+{_img_row([figs.get('montage_head',''), figs.get('regional','')], out_dir)}
+{_regional_tests_html(st.get('regional_tests_by_condition', {}), order=(quiet, noisy))}
 <p class='muted'>Caveat: with 7 channels and the device ear (A2) reference, regional
 differences are partly reference-dependent; treat the spatial pattern as suggestive and
-confirm against a reference-robust montage before interpreting it as physiology.</p>
+confirm against a reference-robust montage before interpreting it as physiology. The montage
+also has no temporal or occipital coverage, so region here means frontal vs central vs
+parietal only.</p>
 
 <h2>5. How few minutes are enough? (exponent &amp; reliability vs recording length)</h2>
 <p>We recompute the exponent using increasing amounts of clean data (1&nbsp;min, 2&nbsp;min,
@@ -293,6 +328,9 @@ rising as more data is added.</li>
 <i>same</i> value a long recording would — the short estimate can be systematically low.
 For comparing people this bias may partly cancel if it is consistent; for absolute values it
 does not. Worth confirming with the fixed vs knee fit and against a longer reference.</p>
+<p>Each dot below is one recording, placed at the number of clean minutes its estimate needed
+to stabilize; the line marks the cohort median. (Vertical spread is spacing only.)</p>
+{_img(figs.get('stabilization',''), out_dir)}
 {_dict_to_html(st.get('stabilization', {}))}
 <p class='muted'>Method grounded in the aperiodic-reliability literature (McKeown et al. 2024,
 Cerebral Cortex; epoch-increment split-half reliability as in EEG power-spectrum reliability

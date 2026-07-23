@@ -22,6 +22,10 @@ plt.rcParams.update({
     "grid.alpha": 0.25, "legend.frameon": False,
 })
 PALETTE = {"rest": "#2a6f97", "movie": "#e07a5f", "unknown": "#8d99ae"}
+# Scalp-region colours (distinct from the rest/movie condition colours above) used to tie the
+# regional plot to the 10-20 head-montage figure.
+REGION_ORDER = ["frontal", "central", "parietal"]
+REGION_COLORS = {"frontal": "#7209b7", "central": "#2a9d8f", "parietal": "#c9184a"}
 DPI = 300
 
 
@@ -132,43 +136,161 @@ def condition_paired(master: pd.DataFrame, out_dir: str, quiet: str = "rest", no
     return p
 
 
-def regional_bar(pp_df, regional_test: dict, out_dir: str) -> Optional[str]:
-    """Participant-level regional exponents: each participant's three regions connected,
-    group means overlaid, and the omnibus + significant post-hoc p-values annotated."""
-    if pp_df is None or len(pp_df) == 0:
+def regional_bar(pp_by_cond: dict, tests_by_cond: dict, out_dir: str,
+                 order=("rest", "movie")) -> Optional[str]:
+    """Participant-level regional exponents, one line per CONDITION (rest solid blue, movie
+    dashed orange — consistent with the rest of the report). Each condition shows its group
+    mean ± SEM across the three scalp regions with the individual participant values behind it,
+    plus the per-condition Friedman omnibus p-value. Region bands/labels are colour-tied to the
+    10-20 head-montage figure shown beside it."""
+    pp_by_cond = pp_by_cond or {}
+    tests_by_cond = tests_by_cond or {}
+    conds = [c for c in order
+             if isinstance(pp_by_cond.get(c), pd.DataFrame) and not pp_by_cond[c].empty]
+    if not conds:
         return None
-    regions = [r for r in ["frontal", "central", "parietal"] if r in pp_df.columns]
+    present = set()
+    for c in conds:
+        present |= set(pp_by_cond[c].columns)
+    regions = [r for r in REGION_ORDER if r in present]
     if len(regions) < 2:
         return None
     x = list(range(len(regions)))
-    fig, ax = plt.subplots(figsize=(7.5, 5.5))
-    # per-participant lines (shows the within-subject pattern honestly)
-    for _, row in pp_df.iterrows():
-        ax.plot(x, [row[r] for r in regions], color="#adb5bd", alpha=0.6, marker="o",
-                markersize=4, linewidth=1, zorder=1)
-    means = [float(pp_df[r].mean()) for r in regions]
-    sems = [float(pp_df[r].std(ddof=1) / np.sqrt(len(pp_df))) for r in regions]
-    ax.errorbar(x, means, yerr=sems, color="#264653", marker="s", markersize=10,
-                linewidth=2.5, capsize=6, zorder=3, label="mean ± SEM")
+    fig, ax = plt.subplots(figsize=(7.8, 5.6))
+    # faint region bands so the x-axis reads against the head-montage colours
+    for i, r in enumerate(regions):
+        ax.axvspan(i - 0.5, i + 0.5, color=REGION_COLORS.get(r, "#cccccc"), alpha=0.07, zorder=0)
+    rng = np.random.default_rng(1)
+    for c in conds:
+        pp = pp_by_cond[c]
+        col = _color(c)
+        style = "-" if str(c) == "rest" else "--"
+        for i, r in enumerate(regions):
+            if r not in pp.columns:
+                continue
+            yv = _num(pp[r]).dropna().values
+            if len(yv):
+                ax.scatter(rng.normal(i, 0.05, len(yv)), yv, color=col, s=18, alpha=0.35,
+                           edgecolor="none", zorder=2)
+        means, sems = [], []
+        for r in regions:
+            v = _num(pp[r]).dropna().values if r in pp.columns else np.array([])
+            means.append(float(np.mean(v)) if len(v) else np.nan)
+            sems.append(float(np.std(v, ddof=1) / np.sqrt(len(v))) if len(v) > 1 else 0.0)
+        n = int(max((int(_num(pp[r]).notna().sum()) for r in regions if r in pp.columns), default=0))
+        ax.errorbar(x, means, yerr=sems, color=col, linestyle=style, marker="s", markersize=9,
+                    linewidth=2.5, capsize=5, zorder=3, label=f"{c} (n={n})")
     ax.set_xticks(x); ax.set_xticklabels(regions)
+    for tick, r in zip(ax.get_xticklabels(), regions):
+        tick.set_color(REGION_COLORS.get(r, "#333333")); tick.set_fontweight("bold")
     ax.set_ylabel("Aperiodic exponent")
     ax.set_xlabel("Scalp region")
-    n = regional_test.get("n_participants", len(pp_df))
-    cond = regional_test.get("condition", "rest")
-    ax.set_title(f"Aperiodic exponent by scalp region (n={n} participants, {cond} only, sessions averaged)")
-    # annotate omnibus + significant post-hoc
+    ax.set_title("Aperiodic exponent by scalp region (rest vs movie, sessions averaged)")
     lines = []
-    if regional_test.get("p_value") not in (None, ""):
-        lines.append(f"Friedman: χ²={regional_test.get('statistic')}, p={regional_test.get('p_value')}")
-    for ph in regional_test.get("posthoc", []):
-        if ph.get("significant"):
-            lines.append(f"{ph['pair']}: p(Holm)={ph['p_holm']} *")
+    for c in conds:
+        t = tests_by_cond.get(c) or {}
+        if t.get("p_value") not in (None, ""):
+            lines.append(f"{c}: Friedman χ²={t.get('statistic')}, p={t.get('p_value')} "
+                         f"(n={t.get('n_participants')})")
+        sig = [ph['pair'] for ph in t.get("posthoc", []) if ph.get("significant")]
+        if sig:
+            lines.append(f"   {c} sig: " + ", ".join(sig))
     if lines:
         ax.text(0.02, 0.98, "\n".join(lines), transform=ax.transAxes, va="top", ha="left",
-                fontsize=9, bbox=dict(boxstyle="round", facecolor="#fff8e6", edgecolor="#e9a23b"))
-    ax.legend(loc="lower left")
+                fontsize=8.5, bbox=dict(boxstyle="round", facecolor="#fff8e6", edgecolor="#e9a23b"))
+    ax.set_xlim(-0.5, len(regions) - 0.5)
+    ax.legend(loc="lower left", fontsize=9)
     fig.tight_layout()
     p = os.path.join(out_dir, "fig_regional.png")
+    fig.savefig(p, bbox_inches="tight"); plt.close(fig)
+    return p
+
+
+def montage_head(regions: dict, out_dir: str) -> Optional[str]:
+    """A 10-20 scalp map (top view, nose up): the full standard layout drawn in grey with the
+    Xon's 7 recording channels highlighted by region colour (frontal / central / parietal),
+    matching the regional plot beside it."""
+    import matplotlib.patches as mpatches
+    # canonical 2-D 10-20 coordinates on a unit-radius head (x = right, y = front)
+    coords = {
+        "Fp1": (-0.31, 0.95), "Fp2": (0.31, 0.95),
+        "F7": (-0.81, 0.59), "F3": (-0.41, 0.61), "Fz": (0.0, 0.63), "F4": (0.41, 0.61), "F8": (0.81, 0.59),
+        "T7": (-1.0, 0.0), "C3": (-0.5, 0.0), "Cz": (0.0, 0.0), "C4": (0.5, 0.0), "T8": (1.0, 0.0),
+        "P7": (-0.81, -0.59), "P3": (-0.41, -0.61), "Pz": (0.0, -0.63), "P4": (0.41, -0.61), "P8": (0.81, -0.59),
+        "O1": (-0.31, -0.95), "O2": (0.31, -0.95),
+    }
+    ch_region = {ch: reg for reg, chans in (regions or {}).items() for ch in chans}
+    if not ch_region:
+        return None
+    fig, ax = plt.subplots(figsize=(5.6, 5.9))
+    ax.add_patch(mpatches.Circle((0, 0), 1.0, fill=False, color="#333333", lw=2))
+    ax.plot([-0.12, 0, 0.12], [0.99, 1.16, 0.99], color="#333333", lw=2)              # nose
+    ax.add_patch(mpatches.Arc((-1.0, 0), 0.20, 0.42, theta1=90, theta2=270, color="#333333", lw=2))
+    ax.add_patch(mpatches.Arc((1.0, 0), 0.20, 0.42, theta1=-90, theta2=90, color="#333333", lw=2))
+    for ch, (xx, yy) in coords.items():
+        reg = ch_region.get(ch)
+        if reg:
+            ax.scatter([xx], [yy], s=580, color=REGION_COLORS.get(reg, "#333333"),
+                       edgecolor="white", linewidth=1.5, zorder=3)
+            ax.text(xx, yy, ch, ha="center", va="center", color="white",
+                    fontsize=9, fontweight="bold", zorder=4)
+        else:
+            ax.scatter([xx], [yy], s=360, facecolor="#f2f2f2", edgecolor="#c3c7cc",
+                       linewidth=1.1, zorder=1)
+            ax.text(xx, yy, ch, ha="center", va="center", color="#9aa0a6", fontsize=7.5, zorder=1)
+    handles = [mpatches.Patch(color=REGION_COLORS[r], label=f"{r} ({', '.join(regions[r])})")
+               for r in REGION_ORDER if r in (regions or {})]
+    ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.02),
+              ncol=1, fontsize=9, frameon=False)
+    ax.set_xlim(-1.35, 1.35); ax.set_ylim(-1.45, 1.35)
+    ax.set_aspect("equal"); ax.axis("off")
+    ax.set_title("Xon montage on the 10–20 layout\n(7 recording channels highlighted by region)",
+                 fontsize=12)
+    fig.tight_layout()
+    p = os.path.join(out_dir, "fig_montage_head.png")
+    fig.savefig(p, bbox_inches="tight", dpi=DPI); plt.close(fig)
+    return p
+
+
+def stabilization_strip(master: pd.DataFrame, out_dir: str) -> Optional[str]:
+    """One dot per recording at the number of clean minutes its exponent estimate needed to
+    stabilize (odd/even halves agree), with the cohort median marked. Vertical spread is jitter
+    only (spacing); the y-axis is labelled 'ICC' by request, with tick numbers suppressed so no
+    misleading per-dot values are shown."""
+    d = _ok(master)
+    if d.empty or "minutes_to_stabilize" not in d.columns:
+        return None
+    d = d.copy()
+    d["mts"] = _num(d["minutes_to_stabilize"])
+    d = d.dropna(subset=["mts"])
+    if d.empty:
+        return None
+    rng = np.random.default_rng(3)
+    fig, ax = plt.subplots(figsize=(9, 3.7))
+    conds = [c for c in ["rest", "movie"]
+             if "condition" in d.columns and c in set(d["condition"].astype(str))]
+    if conds:
+        for c in conds:
+            sub = d[d["condition"].astype(str) == c]
+            ax.scatter(sub["mts"], rng.uniform(-1, 1, len(sub)), color=_color(c), s=55,
+                       alpha=0.8, edgecolor="white", linewidth=0.6, zorder=3, label=c)
+    else:
+        ax.scatter(d["mts"], rng.uniform(-1, 1, len(d)), color="#e9c46a", s=55,
+                   alpha=0.85, edgecolor="white", linewidth=0.6, zorder=3)
+    med = float(np.median(d["mts"].values))
+    ax.axvline(med, color="#264653", lw=2, zorder=4)
+    ax.text(med + 0.05, 1.55, f"median = {med:.2f} min", ha="left", va="center",
+            fontsize=11, color="#264653")
+    ax.set_ylim(-2.2, 2.2); ax.set_yticks([])
+    ax.set_ylabel("ICC")
+    ax.set_xlabel("clean data used before estimate stabilized (minutes)")
+    ax.set_title("When did each recording's exponent estimate stabilize?")
+    ax.set_xlim(left=0)
+    if conds:
+        ax.legend(loc="lower right", fontsize=9)
+    ax.grid(True, axis="x", alpha=0.25)
+    fig.tight_layout()
+    p = os.path.join(out_dir, "fig_stabilization.png")
     fig.savefig(p, bbox_inches="tight"); plt.close(fig)
     return p
 
@@ -414,16 +536,21 @@ def exponent_by_sex(demo: dict, out_dir: str) -> Optional[str]:
 def build_all(master: pd.DataFrame, results: List[Any], regional_pp, regional_test: dict,
               out_dir: str, quiet: str = "rest", noisy: str = "movie",
               reliab: Optional[dict] = None, adj: Optional[dict] = None,
-              group_exp: Optional[dict] = None, demo: Optional[dict] = None) -> Dict[str, str]:
+              group_exp: Optional[dict] = None, demo: Optional[dict] = None,
+              regions: Optional[dict] = None, regional_by_cond: Optional[dict] = None,
+              regional_tests_by_cond: Optional[dict] = None) -> Dict[str, str]:
     figs: Dict[str, Optional[str]] = {
         "exponent_by_condition": exponent_by_condition(master, out_dir),
         "test_retest": test_retest_scatter(master, out_dir),
         "bland_altman": bland_altman(master, out_dir),
         "condition_paired": condition_paired(master, out_dir, quiet, noisy),
-        "regional": regional_bar(regional_pp, regional_test or {}, out_dir),
+        "montage_head": montage_head(regions or {}, out_dir),
+        "regional": regional_bar(regional_by_cond or {}, regional_tests_by_cond or {}, out_dir,
+                                 order=(quiet, noisy)),
         "reliability_by_duration": reliability_curve(reliab or {}, adj or {}, out_dir),
         "group_exponent_by_duration": group_exponent_curve(group_exp or {}, out_dir),
         "duration_overlay": duration_overlay(results, out_dir),
+        "stabilization": stabilization_strip(master, out_dir),
         "quality": quality_scatter(master, out_dir),
         "exponent_by_age": exponent_by_age(demo or {}, out_dir),
         "exponent_by_sex": exponent_by_sex(demo or {}, out_dir),
