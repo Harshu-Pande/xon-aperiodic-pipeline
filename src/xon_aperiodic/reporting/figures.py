@@ -111,6 +111,9 @@ def test_retest_scatter(master: pd.DataFrame, out_dir: str) -> Optional[str]:
 
 
 def condition_paired(master: pd.DataFrame, out_dir: str, quiet: str = "rest", noisy: str = "movie") -> Optional[str]:
+    """Each within-session pair's quiet->noisy change, coloured by PARTICIPANT (the x-axis
+    already labels the two conditions, so colour encodes who each line belongs to)."""
+    from matplotlib.lines import Line2D
     d = _ok(master)
     if d.empty or not {"participant", "session", "condition"}.issubset(d.columns):
         return None
@@ -120,16 +123,24 @@ def condition_paired(master: pd.DataFrame, out_dir: str, quiet: str = "rest", no
     common = sorted(set(q.index) & set(n.index))
     if len(common) < 2:
         return None
-    fig, ax = plt.subplots(figsize=(6, 5))
+    participants = sorted({k.split("|")[0] for k in common})
+    cmap = plt.get_cmap("tab20" if len(participants) > 10 else "tab10")
+    pcolor = {p: cmap(i % cmap.N) for i, p in enumerate(participants)}
+    fig, ax = plt.subplots(figsize=(6.5, 5))
     for k in common:
-        ax.plot([0, 1], [float(q.loc[k]), float(n.loc[k])], "-", color="#adb5bd", alpha=0.7, zorder=1)
-    ax.scatter([0] * len(common), [float(q.loc[k]) for k in common], color=_color(quiet),
-               s=45, zorder=3, label=quiet)
-    ax.scatter([1] * len(common), [float(n.loc[k]) for k in common], color=_color(noisy),
-               s=45, zorder=3, label=noisy)
+        c = pcolor[k.split("|")[0]]
+        ax.plot([0, 1], [float(q.loc[k]), float(n.loc[k])], "-", color=c, alpha=0.6,
+                linewidth=1.4, zorder=1)
+        ax.scatter([0, 1], [float(q.loc[k]), float(n.loc[k])], color=c, s=45, zorder=3,
+                   edgecolor="white", linewidth=0.8)
     ax.set_xticks([0, 1]); ax.set_xticklabels([f"{quiet}\n(quiet)", f"{noisy}\n(noisy)"])
+    ax.set_xlim(-0.35, 1.35)
     ax.set_ylabel("Aperiodic exponent")
     ax.set_title(f"Within-session: {quiet} vs {noisy} (n={len(common)} pairs)")
+    handles = [Line2D([0], [0], color=pcolor[p], lw=2, marker="o", markersize=6, label=p)
+               for p in participants]
+    ax.legend(handles=handles, title="participant", fontsize=8, ncol=1,
+              loc="center left", bbox_to_anchor=(1.01, 0.5))
     fig.tight_layout()
     p = os.path.join(out_dir, "fig_condition_paired.png")
     fig.savefig(p, bbox_inches="tight"); plt.close(fig)
