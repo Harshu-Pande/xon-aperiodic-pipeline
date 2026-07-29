@@ -87,7 +87,7 @@ P011_S001_movie.xdf  →  participant P011, session 1, condition movie</code></p
 <p>Open the GUI and change it there, or open <strong><code>config/config.yaml</code></strong> in any text editor — every option is grouped and commented. Save, re-run.</p>
 <blockquote><p><strong>Important:</strong> the GUI and command-line overrides apply to <em>that run only</em>. <code>config/config.yaml</code> is the permanent source of defaults.</p></blockquote>
 <h2 id="a5-keeping-your-own-changes-when-the-code-updates">A5. Keeping your own changes when the code updates</h2>
-<p>The launchers auto-update from GitHub. <code>update.py</code> does a <strong>hash-based smart merge</strong>: any file you edited locally is <strong>kept</strong>, and the incoming version is saved next to it as <code>*.new</code> so you can compare. You will not silently lose edits to <code>config.yaml</code>.</p>
+<p>The launchers auto-update from GitHub. <code>scripts/update.py</code> does a <strong>hash-based smart merge</strong>: any file you edited locally is <strong>kept</strong>, and the incoming version is saved next to it as <code>*.new</code> so you can compare. You will not silently lose edits to <code>config.yaml</code>.</p>
 <p>To skip updating entirely, set the environment variable <code>XON_NO_UPDATE=1</code>.</p>
 <hr>
 <h1 id="track-b-for-whoever-maintains-the-code">TRACK B — For whoever maintains the code</h1>
@@ -145,7 +145,8 @@ src/xon_aperiodic/
   gui.py            native desktop GUI
 tests/              synthetic test suite
 docs/               this documentation (docs/archive/ = superseded)
-update.py           smart updater that preserves local edits</code></pre>
+scripts/            launchers (run.sh, run.bat) + the smart updater (update.py)
+archive/            superseded material, kept for history</code></pre>
 <hr>
 <h1 id="troubleshooting">TROUBLESHOOTING</h1>
 <h3 id="no-files-found-with-pattern-xdf">"No files found with pattern '*.xdf'"</h3>

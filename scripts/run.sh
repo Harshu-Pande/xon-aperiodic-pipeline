@@ -11,7 +11,7 @@
 # dependencies, then runs. No global installs, no git required, safe to re-run.
 # =============================================================================
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."          # repo root (this script lives in scripts/)
 
 # If this folder was downloaded (e.g. a ZIP), macOS may have "quarantined" it, which
 # is what triggers the scary "unidentified developer" warning. Clear that flag on our
@@ -29,12 +29,12 @@ fi
 # made locally (config.yaml or src). Handled by update.py. Only public code is fetched;
 # your data/outputs/.venv are never touched (HIPAA-safe). Set XON_NO_UPDATE=1 to freeze.
 # ---------------------------------------------------------------------------
-if [ "${XON_NO_UPDATE:-0}" != "1" ] && [ "${XON_UPDATED:-0}" != "1" ] && [ -f update.py ]; then
-  rc=0; "$PY" update.py || rc=$?
+if [ "${XON_NO_UPDATE:-0}" != "1" ] && [ "${XON_UPDATED:-0}" != "1" ] && [ -f scripts/update.py ]; then
+  rc=0; "$PY" scripts/update.py || rc=$?
   if [ "$rc" = "10" ]; then
     export XON_UPDATED=1
-    chmod +x run.sh "Start Here (Mac).command" 2>/dev/null || true
-    exec bash run.sh "$@"
+    chmod +x scripts/run.sh "Start Here (Mac).command" 2>/dev/null || true
+    exec bash scripts/run.sh "$@"
   fi
 fi
 
@@ -71,7 +71,7 @@ if [ ! -e "$DESKTOP_LAUNCHER" ] && [ -d "$HOME/Desktop" ]; then
   {
     echo "#!/bin/bash"
     echo "cd \"$(pwd)\""
-    echo "bash run.sh gui"
+    echo "bash scripts/run.sh gui"
   } > "$DESKTOP_LAUNCHER" 2>/dev/null && chmod +x "$DESKTOP_LAUNCHER" 2>/dev/null || true
   echo "Tip: a shortcut 'Open Xon Pipeline' was placed on your Desktop — double-click it next time."
 fi

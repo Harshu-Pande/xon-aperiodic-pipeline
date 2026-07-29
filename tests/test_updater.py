@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-_spec = importlib.util.spec_from_file_location("xon_update", ROOT / "update.py")
+_spec = importlib.util.spec_from_file_location("xon_update", ROOT / "scripts" / "update.py")
 up = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(up)
 

@@ -22,4 +22,4 @@ echo "  (Keep this black window open while you use the app.)"
 echo "----------------------------------------------------------------"
 echo ""
 
-bash run.sh gui
+bash scripts/run.sh gui

@@ -14,5 +14,5 @@ echo   An app window will open when it's ready.
 echo   (Keep this window open while you use the app.)
 echo ----------------------------------------------------------------
 echo.
-call run.bat gui
+call scripts\run.bat gui
 pause

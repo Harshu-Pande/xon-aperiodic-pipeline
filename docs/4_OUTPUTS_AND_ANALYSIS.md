@@ -230,7 +230,7 @@ exponent flattens with normal aging.
 
 ## 4.7 Reproducing the poster figures
 
-`poster_figs.py` (repo root) regenerates the six poster figures from
+`archive/poster-scripts/poster_figs.py` regenerates the six poster figures from
 `master_everything.csv` with poster-scale fonts and the poster palette.
-`build_poster.py` inserts them into the PowerPoint file. Neither is part of the pipeline —
+`archive/poster-scripts/build_poster.py` inserts them into the PowerPoint file. Neither is part of the pipeline —
 they read its outputs.

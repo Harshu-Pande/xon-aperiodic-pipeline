@@ -248,7 +248,7 @@ top / rest under Advanced). `gui_web.py` is an optional Streamlit fallback
 
 ---
 
-## `update.py` — updates that don't destroy edits
+## `scripts/update.py` — updates that don't destroy edits
 
 `smart_merge()` compares **hashes**: files you never edited are updated in place; files you
 *did* edit are **kept**, with the new version written alongside as `*.new`. Skip with

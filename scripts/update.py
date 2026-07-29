@@ -31,7 +31,8 @@ import urllib.request
 import zipfile
 
 REPO = "Harshu-Pande/xon-aperiodic-pipeline"
-ROOT = os.path.dirname(os.path.abspath(__file__))
+# this file lives in scripts/, so the repo root is its PARENT directory
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(ROOT, ".xon_manifest.json")
 VERSION = os.path.join(ROOT, ".xon_version")
 

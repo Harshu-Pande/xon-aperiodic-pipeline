@@ -61,7 +61,7 @@ every option is grouped and commented. Save, re-run.
 
 ## A5. Keeping your own changes when the code updates
 
-The launchers auto-update from GitHub. `update.py` does a **hash-based smart merge**: any
+The launchers auto-update from GitHub. `scripts/update.py` does a **hash-based smart merge**: any
 file you edited locally is **kept**, and the incoming version is saved next to it as
 `*.new` so you can compare. You will not silently lose edits to `config.yaml`.
 
@@ -150,7 +150,8 @@ src/xon_aperiodic/
   gui.py            native desktop GUI
 tests/              synthetic test suite
 docs/               this documentation (docs/archive/ = superseded)
-update.py           smart updater that preserves local edits
+scripts/            launchers (run.sh, run.bat) + the smart updater (update.py)
+archive/            superseded material, kept for history
 ```
 
 ---

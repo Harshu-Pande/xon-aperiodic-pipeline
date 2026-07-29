@@ -8,7 +8,7 @@ REM    run.bat <args...>  -> forwarded to xon-pipeline
 REM  Creates a self-contained .venv the first time; no global installs, no git needed.
 REM ==========================================================================
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 where python >nul 2>nul
 if errorlevel 1 (
@@ -19,8 +19,8 @@ if errorlevel 1 (
 REM --- AUTO-UPDATE (smart): pulls the latest code but PRESERVES your local edits
 REM --- (config.yaml or src). Handled by update.py. Only public code is fetched; your
 REM --- data/outputs/.venv are never touched. Set XON_NO_UPDATE=1 to freeze.
-if not "%XON_NO_UPDATE%"=="1" if not "%XON_UPDATED%"=="1" if exist update.py (
-  python update.py
+if not "%XON_NO_UPDATE%"=="1" if not "%XON_UPDATED%"=="1" if exist scripts\update.py (
+  python scripts\update.py
   if errorlevel 10 (
     set XON_UPDATED=1
     call run.bat %*
@@ -49,7 +49,7 @@ REM One-double-click Desktop launcher so opening it again later is trivial.
 if not exist "%USERPROFILE%\Desktop\Open Xon Pipeline.bat" (
   > "%USERPROFILE%\Desktop\Open Xon Pipeline.bat" echo @echo off
   >> "%USERPROFILE%\Desktop\Open Xon Pipeline.bat" echo cd /d "%CD%"
-  >> "%USERPROFILE%\Desktop\Open Xon Pipeline.bat" echo call run.bat gui
+  >> "%USERPROFILE%\Desktop\Open Xon Pipeline.bat" echo call scripts\run.bat gui
   echo Tip: a shortcut 'Open Xon Pipeline' was placed on your Desktop - double-click it next time.
 )
 
