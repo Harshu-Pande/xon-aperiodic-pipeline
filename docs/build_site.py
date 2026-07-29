@@ -383,6 +383,101 @@ def shell(page: str, title: str, body: str, toc) -> str:
             f"<body><div class='wrap'>{''.join(nav)}<main>{body}</main></div></body></html>")
 
 
+def build_single():
+    """One fully self-contained HTML file: all four docs + overview, in-page navigation,
+    inline CSS and inline SVG. No sibling files, no internet, no repo needed — it can be
+    emailed on its own and will work anywhere."""
+    sections, navlinks = [], []
+    for page, title, src in PAGES:
+        if src is None:
+            continue
+        pid = page.replace(".html", "")
+        md = (DOCS / src).read_text(encoding="utf-8")
+        body, toc = md_to_html(md)
+        # namespace anchors so the four docs can't collide in one document
+        body = re.sub(r'(<h[1-4]) id="([^"]*)"', rf'\1 id="{pid}--\2"', body)
+        # diagrams
+        for anchor, svg, cap in DIAGRAMS.get(page, []):
+            m = re.match(r"^(#+)\s+(.*)$", anchor)
+            lvl, prefix = len(m.group(1)), m.group(2).strip()
+            fig = f'<figure class="fig">{svg}<figcaption>{cap}</figcaption></figure>'
+            for hm in re.finditer(rf'<h{lvl} id="[^"]*">(.*?)</h{lvl}>', body, re.S):
+                plain = re.sub(r"<[^>]+>", "", hm.group(1)).replace("&amp;", "&").strip()
+                if plain.startswith(prefix.replace("`", "")):
+                    body = body[:hm.end()] + fig + body[hm.end():]
+                    break
+        # cross-document links become in-page jumps
+        for pg2, _t2, src2 in PAGES:
+            if src2:
+                body = body.replace(f'href="{pg2}"', f'href="#{pg2.replace(".html","")}"')
+        sections.append(f'<section id="{pid}">{body}</section>')
+        subs = "".join(f'<a href="#{pid}--{a}">{html.escape(t)}</a>'
+                       for lvl, t, a in toc if lvl == 2)
+        navlinks.append((pid, title, subs))
+
+    nav = ['<nav><div class="brand"><b>Xon Aperiodic Pipeline</b>'
+           '<span>Complete documentation &mdash; single file</span></div>',
+           '<div class="sec">Contents</div>',
+           '<a href="#top">Overview</a>']
+    for pid, title, subs in navlinks:
+        nav.append(f'<a href="#{pid}">{title}</a>')
+        if subs:
+            nav.append(f'<div class="toc">{subs}</div>')
+    nav.append("</nav>")
+
+    cards = "".join(
+        f'<a class="card" href="#{i}"><b>{t}</b><span>{d}</span></a>'
+        for i, t, d in [
+            ("1_methods", "1 · Methods & Literature",
+             "Why every setting is what it is — with the papers behind it."),
+            ("2_setup", "2 · Setup & Running",
+             "Install, run and troubleshoot. Non-coder and coder tracks."),
+            ("3_code", "3 · Code Walkthrough",
+             "Every module and function; what it does and whether it's ON by default."),
+            ("4_outputs", "4 · Outputs & Analysis",
+             "Every output file, every analysis, and the full master-CSV dictionary."),
+        ])
+    overview = f"""<section id="top">
+<div class="hero"><h1>Xon Aperiodic Pipeline</h1>
+<p>Turning 7-channel Xon <code>.xdf</code> recordings into the EEG aperiodic exponent —
+reliably, reproducibly, and offline. <b>This single file contains the complete
+documentation</b>; nothing else is required to read it.</p></div>
+<div class="kpi">
+  <div><b>39</b><span>recordings processed</span></div>
+  <div><b>0.98</b><span>mean fit r&sup2;</span></div>
+  <div><b>0.90</b><span>rest test–retest ICC</span></div>
+  <div><b>14.25</b><span>median min to stabilize</span></div>
+</div>
+<h2 id="top--start">Start here</h2>
+<div class="cards">{cards}</div>
+<figure class="fig">{svg_flow()}<figcaption>How one recording moves through the pipeline.</figcaption></figure>
+<h2 id="top--quick">The 60-second version</h2>
+<ul>
+<li><b>Run it:</b> double-click <code>Start Here (Mac).command</code> or
+<code>Start Here (Windows).bat</code>, pick an input and an output folder, press Run.</li>
+<li><b>Read it:</b> open <code>cohort_report.html</code> in the output folder.</li>
+<li><b>Analyse it:</b> <code>master_everything.csv</code> — one wide row per recording,
+163 columns, including <i>why</i> each channel caused rejections.</li>
+<li><b>Change it:</b> everything lives in <code>config/config.yaml</code>, or tick it in the GUI.</li>
+</ul>
+<blockquote><p><b>The one caveat to remember:</b> this pilot establishes
+<b>reliability and consistency</b>, not absolute accuracy — no simultaneous research-grade
+EEG reference was recorded.</p></blockquote>
+</section>"""
+
+    extra = ("<style>section{scroll-margin-top:12px}"
+             "section+section{border-top:3px solid var(--line);margin-top:56px;padding-top:34px}"
+             "@media print{section+section{page-break-before:always;border-top:0}}</style>")
+    doc = (f"<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'>"
+           f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+           f"<title>Xon Aperiodic Pipeline — Complete Documentation</title>"
+           f"<style>{CSS}</style>{extra}</head><body><div class='wrap'>"
+           f"{''.join(nav)}<main>{overview}{''.join(sections)}</main></div></body></html>")
+    out = DOCS / "Xon_Pipeline_Documentation.html"
+    out.write_text(doc, encoding="utf-8")
+    print("wrote", out, f"({len(doc)//1024} KB, fully self-contained)")
+
+
 def build():
     for page, title, src in PAGES:
         if src is None:
@@ -460,4 +555,5 @@ EEG reference was recorded.</p></blockquote>
 
 
 if __name__ == "__main__":
-    build()
+    build()          # docs/site/  — the linked multi-page version
+    build_single()   # docs/Xon_Pipeline_Documentation.html — one shareable file
