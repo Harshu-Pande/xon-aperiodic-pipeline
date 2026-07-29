@@ -153,9 +153,14 @@ not a noisy participant — and it's exactly the pattern the bad-channel screen 
 
 ## 4.4 The cohort analyses — what each answers
 
+> **About the numbers in this section.** They come from the **reference run**
+> (10 healthy adults, 39 recordings, summer 2026) and are shown only as a worked example
+> of how to read each output. **Your run will produce different values** — the analyses and
+> how you interpret them are what carry over, not these figures.
+
 ### Quality & yield → `fig_quality.png`, `stats_quality.csv`
-Fit r² vs % data retained. **Cohort: mean r² = 0.98, median 79 % kept across 39
-recordings.** Shows good fits are obtained even when a lot of data is rejected.
+Fit r² vs % data retained. *(Reference run: mean r² 0.98, median 79 % kept over 39
+recordings.)* Shows good fits are obtainable even when a lot of data is rejected.
 
 ### Test–retest reliability → `fig_test_retest.png`, `fig_bland_altman.png`, `stats_reliability.csv`
 Same person, two sessions. **ICC(2,1)** with bootstrap CI.

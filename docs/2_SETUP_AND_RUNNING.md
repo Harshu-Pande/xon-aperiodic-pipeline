@@ -149,7 +149,7 @@ src/xon_aperiodic/
   reporting/        cohort stats, figures, HTML report, gallery, exports
   gui.py            native desktop GUI
 tests/              synthetic test suite
-docs/               this documentation (docs/archive/ = superseded)
+docs/               documentation (start at docs/README.md; archive/ = superseded)
 scripts/            launchers (run.sh, run.bat) + the smart updater (update.py)
 archive/            superseded material, kept for history
 ```

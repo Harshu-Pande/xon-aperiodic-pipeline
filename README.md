@@ -155,14 +155,11 @@ xon-aperiodic-pipeline/
 | **[3 — Code Walkthrough](docs/3_CODE_WALKTHROUGH.md)** | every module and function; ON or OFF by default |
 | **[4 — Outputs & Analysis](docs/4_OUTPUTS_AND_ANALYSIS.md)** | every output file + the full master-CSV data dictionary |
 
-**HTML versions** (nicer to read, with diagrams):
-
-- **[`docs/Xon_Pipeline_Documentation.html`](docs/Xon_Pipeline_Documentation.html)** — all four
-  docs in **one self-contained file**. No repo, no internet, nothing else needed — **share this
-  one.**
-- [`docs/site/index.html`](docs/site/index.html) — the same content as a linked multi-page site.
-
-Regenerate both with `python3 docs/build_site.py`.
+**Or read everything in one place:**
+**[`docs/Xon_Pipeline_Documentation.html`](docs/Xon_Pipeline_Documentation.html)** — all four
+documents in a single self-contained HTML file with sidebar navigation, search and diagrams.
+No repo, no internet, nothing to install — email it to anyone and it just works.
+Regenerate it with `python3 docs/build_site.py` after editing the markdown.
 
 ---
 
