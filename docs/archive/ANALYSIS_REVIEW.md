@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED / ARCHIVED (kept for history).** This file describes an earlier
+> version of the pipeline and may contain out-of-date numbers or settings.
+> **Use the current documentation in `docs/` instead.**
+
 # Critical review of the analysis (real cohort, n = 10 participants / 39 recordings)
 
 A candid assessment of *what we are measuring, what we can claim, and whether the analyses
@@ -36,7 +40,7 @@ There are two distinct comparisons here and both matter:
 
 **(a) Does the exponent value differ between states?** This is a real scientific question —
 the exponent indexes E/I balance, which can shift between rest and watching a movie. On the
-real data: mean diff = −0.026, **95% CI [−0.094, +0.043]**, Cohen's d_z = −0.18, p = 0.44.
+real data: mean diff = +0.002, **95% CI [−0.076, +0.080]**, Cohen's d_z = 0.01, p = 0.95 (participant-level; the earlier −0.026/p=0.44 figure was pseudoreplicated).
 The honest reading is not "no difference" but "**no evidence of a difference, and only
 powered to detect a moderate-to-large one**" — the CI rules out a large shift but is
 compatible with a small one either way. Reported with a CI + effect size (added), not just a

@@ -49,7 +49,7 @@ method never quarantines the files.
 
 Prefer to download-and-double-click instead, or on Windows? See the step-by-step guide,
 which also covers the one-time macOS security prompt (and how to clear it without an admin
-password): **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)**.
+password): **[docs/2_SETUP_AND_RUNNING.md](docs/2_SETUP_AND_RUNNING.md)**.
 
 ---
 
@@ -96,7 +96,7 @@ xon-pipeline run --set artifacts.reference=average --set fooof.freq_range=[2,45]
 ```
 
 New to the settings, or planning to tinker a lot? See the plain-English
-[**settings cheat-sheet**](docs/SETTINGS.md) — an "I want to X → change Y" table covering
+[**code walkthrough**](docs/3_CODE_WALKTHROUGH.md) — a module-by-module table covering
 the bad-channel screen, reference, ICA, FOOOF band, thresholds, and more. Or just tick
 them in the GUI.
 
@@ -140,12 +140,20 @@ xon-aperiodic-pipeline/
 │   └── gui.py                    # offline native desktop GUI
 ├── tests/                        # pytest suite (synthetic data)
 ├── examples/                     # synthetic data generator + demo
-└── docs/                         # USAGE.md and the methods walkthrough
+└── docs/                         # the 4 documentation files (archive/ = superseded)
 ```
 
-See [`docs/USAGE.md`](docs/USAGE.md) for a full walkthrough of every command and output,
-and [`docs/PIPELINE_WALKTHROUGH.md`](docs/PIPELINE_WALKTHROUGH.md) for the methodology and
-the rationale behind each artifact-handling choice.
+### Documentation
+
+| Doc | Read it for |
+|---|---|
+| [1 — Methods & Literature](docs/1_METHODS_AND_LITERATURE.md) | why every setting is what it is, with citations |
+| [2 — Setup & Running](docs/2_SETUP_AND_RUNNING.md) | install, run, troubleshoot (non-coder **and** coder tracks) |
+| [3 — Code Walkthrough](docs/3_CODE_WALKTHROUGH.md) | every module/function, what it does, ON or OFF by default |
+| [4 — Outputs & Analysis](docs/4_OUTPUTS_AND_ANALYSIS.md) | every output file + the full master-CSV data dictionary |
+
+An HTML version of all four is in **`docs/site/index.html`** (open it in a browser).
+Older docs are kept in `docs/archive/` and are **superseded**.
 
 ---
 

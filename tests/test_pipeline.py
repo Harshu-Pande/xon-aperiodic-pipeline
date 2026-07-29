@@ -73,7 +73,6 @@ def test_metadata_condition_alias(base_cfg, tmp_path):
 @pytest.mark.parametrize("true_exp", [0.7, 1.2, 1.8])
 def test_exponent_recovery(base_cfg, tmp_path, true_exp):
     base_cfg.data["analysis"]["block_analysis"] = False
-    base_cfg.data["analysis"]["convergence_analysis"] = False
     rng = np.random.default_rng(7)
     data = make_recording(250.0, 3.0, true_exp, rng, amp_uv=12.0)
     path = tmp_path / "rec.xdf"
@@ -153,7 +152,6 @@ def test_channel_screen_recovers_epochs(base_cfg, tmp_path):
 
 def test_average_reference_runs(base_cfg, clean_xdf):
     base_cfg.data["analysis"]["block_analysis"] = False
-    base_cfg.data["analysis"]["convergence_analysis"] = False
     base_cfg.data["artifacts"]["reference"] = "average"
     result = run_pipeline(str(clean_xdf), cfg=base_cfg)
     assert result.master_record["reference"] == "average"

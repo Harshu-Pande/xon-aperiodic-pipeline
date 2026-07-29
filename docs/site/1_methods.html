@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>1 · Methods &amp; Literature — Xon Aperiodic Pipeline</title><style>
+:root{--red:#BA0C2F;--red-dk:#8f0a24;--ink:#1f2a33;--mut:#5b6770;--line:#e3e7eb;
+--bg:#f7f8fa;--card:#fff;--blue:#2E5E8C;--gold:#D99A1C;--green:#1D7A74;--purple:#6A4C93}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+color:var(--ink);background:var(--bg)}
+.wrap{display:flex;min-height:100vh;align-items:flex-start}
+nav{width:290px;flex:0 0 290px;background:var(--card);border-right:1px solid var(--line);
+padding:0 0 40px;position:sticky;top:0;height:100vh;overflow-y:auto}
+nav .brand{background:var(--red);color:#fff;padding:20px 22px}
+nav .brand b{display:block;font-size:1.05rem;letter-spacing:.2px}
+nav .brand span{font-size:.8rem;opacity:.9}
+nav a{display:block;padding:11px 22px;color:var(--ink);text-decoration:none;font-size:.93rem;
+border-left:3px solid transparent}
+nav a:hover{background:#f2f5f8}
+nav a.active{background:#fdf2f4;border-left-color:var(--red);color:var(--red-dk);font-weight:600}
+nav .sec{padding:16px 22px 6px;font-size:.72rem;text-transform:uppercase;letter-spacing:.9px;color:var(--mut)}
+nav .toc a{padding:6px 22px 6px 32px;font-size:.86rem;color:var(--mut);border-left:2px solid var(--line)}
+nav .toc a:hover{color:var(--red-dk)}
+main{flex:1;min-width:0;padding:44px 56px 90px;max-width:1080px}
+h1{font-size:2.05rem;margin:.1em 0 .55em;letter-spacing:-.3px}
+h2{font-size:1.42rem;margin:2.1em 0 .6em;padding-bottom:8px;border-bottom:2px solid var(--line)}
+h3{font-size:1.12rem;margin:1.7em 0 .45em;color:var(--red-dk)}
+h4{font-size:1rem;margin:1.3em 0 .35em}
+p{margin:.7em 0}
+code{background:#eef1f4;padding:2px 6px;border-radius:4px;font-size:.87em;
+font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+pre{background:#1f2a33;color:#e8eef3;padding:16px 18px;border-radius:9px;overflow-x:auto;
+font-size:.86rem;line-height:1.5}
+pre code{background:none;color:inherit;padding:0;font-size:inherit}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.9rem;background:var(--card);
+box-shadow:0 1px 2px rgba(0,0,0,.05);border-radius:8px;overflow:hidden}
+th{background:#eef2f6;text-align:left;font-weight:650}
+th,td{border:1px solid var(--line);padding:8px 11px;vertical-align:top}
+tr:nth-child(even) td{background:#fafbfc}
+blockquote{margin:1.1em 0;padding:12px 18px;background:#fff8e6;border-left:4px solid var(--gold);
+border-radius:0 6px 6px 0}
+blockquote p{margin:.3em 0}
+ul,ol{margin:.6em 0;padding-left:1.5em}
+li{margin:.28em 0}
+hr{border:0;border-top:1px solid var(--line);margin:2.2em 0}
+a{color:var(--red-dk)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:16px;margin:1.4em 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;
+text-decoration:none;color:inherit;display:block;transition:.15s}
+.card:hover{border-color:var(--red);box-shadow:0 4px 14px rgba(186,12,47,.11);transform:translateY(-2px)}
+.card b{display:block;color:var(--red-dk);margin-bottom:5px;font-size:1.02rem}
+.card span{font-size:.87rem;color:var(--mut)}
+.hero{background:linear-gradient(135deg,var(--red),var(--red-dk));color:#fff;padding:34px 38px;
+border-radius:12px;margin-bottom:26px}
+.hero h1{color:#fff;margin:0 0 8px}
+.hero p{margin:0;opacity:.94}
+.fig{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin:1.5em 0;text-align:center}
+.fig svg{max-width:100%;height:auto}
+.fig figcaption{font-size:.84rem;color:var(--mut);margin-top:10px;font-style:italic}
+.pill{display:inline-block;font-size:.74rem;font-weight:700;padding:2px 9px;border-radius:11px;
+vertical-align:middle}
+.on{background:#e3f5ec;color:#137a4d}.off{background:#fdeaea;color:#b3261e}
+.always{background:#eef1f4;color:var(--mut)}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:1.3em 0}
+.kpi div{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--blue);
+border-radius:8px;padding:14px 16px}
+.kpi b{display:block;font-size:1.5rem;color:var(--blue);line-height:1.2}
+.kpi span{font-size:.8rem;color:var(--mut)}
+@media(max-width:900px){.wrap{display:block}nav{width:auto;height:auto;position:static;flex:none}
+main{padding:26px 20px}}
+@media print{nav{display:none}main{padding:0;max-width:none}.card:hover{transform:none}}
+</style></head><body><div class='wrap'><nav><div class="brand"><b>Xon Aperiodic Pipeline</b><span>Documentation</span></div><div class="sec">Contents</div><a href="index.html">Overview</a><a href="1_methods.html" class="active">1 · Methods & Literature</a><div class="toc"><a href="#11-the-measure-aperiodic-exponent">1.1 The measure: aperiodic exponent</a><a href="#12-acquisition-preprocessing-settings">1.2 Acquisition &amp;amp; preprocessing settings</a><a href="#13-the-fooof-fit">1.3 The FOOOF fit</a><a href="#14-the-emg-problem-the-most-important-methodological-caveat">1.4 The EMG problem (the most important methodological caveat)</a><a href="#15-ica-is-off-by-default">1.5 ICA is OFF by default</a><a href="#16-reliability-statistics">1.6 Reliability &amp;amp; statistics</a><a href="#17-two-different-how-many-minutes-are-enough-questions">1.7 Two different &quot;how many minutes are enough?&quot; questions</a><a href="#18-what-this-study-design-can-and-cannot-support">1.8 What this study design can and cannot support</a><a href="#19-software">1.9 Software</a></div><a href="2_setup.html">2 · Setup & Running</a><a href="3_code.html">3 · Code Walkthrough</a><a href="4_outputs.html">4 · Outputs & Analysis</a><div class="sec">Repo</div><a href="../../README.md">README</a><a href="../archive/">Archived docs</a></nav><main><h1 id="1-methods-the-literature-behind-them">1 — Methods &amp; the literature behind them</h1>
+<p><em>Why each setting is what it is, and the paper it comes from. Every default in <code>config/config.yaml</code> should be traceable to a row in this document.</em></p>
+<hr>
+<h2 id="11-the-measure-aperiodic-exponent">1.1 The measure: aperiodic exponent</h2>
+<p>The EEG power spectrum is the sum of <strong>rhythmic peaks</strong> (alpha, beta …) sitting on a <strong>broadband 1/f-like background</strong>. The background's slope on log-log axes is the <strong>aperiodic exponent</strong>.</p>
+<ul><li><strong>Method:</strong> FOOOF / specparam — Donoghue et al. (2020), <em>Parameterizing neural power spectra into periodic and aperiodic components</em>, <strong>Nature Neuroscience</strong> 23:1655–1665.</li><li><strong>Why it matters for AD:</strong> a flatter slope (lower exponent) is interpreted as a shift toward <strong>excitation</strong> in excitation–inhibition (E/I) balance. AD disrupts E/I balance in ways tied to amyloid and tau.</li><li><strong>Honest caveat we keep in the report:</strong> the exponent→E/I link is a <em>putative</em> marker from modelling and pharmacology work, and is debated. Aperiodic changes in preclinical / prodromal AD are also <strong>region-dependent</strong> (flattening in some regions, steepening in others), so direction is not a simple one-way shift.</li><li><strong>Aging confound:</strong> the exponent flattens with normal aging (Voytek et al. 2015), so an AD-vs-control design must be age-matched.</li></ul>
+<hr>
+<h2 id="12-acquisition-preprocessing-settings">1.2 Acquisition &amp; preprocessing settings</h2>
+<p>The Xon-specific parameters follow the <strong>Boere &amp; Krigolson</strong> lab's Xon validation work (Boere et al. 2025, <em>Sci Rep</em>; Boere, Copithorne &amp; Krigolson 2025, <em>Exp Brain Res</em>).</p>
+<table><thead><tr><th>Setting</th><th>Value</th><th>Where it comes from</th></tr></thead><tbody><tr><td><code>filter.high_pass_hz</code></td><td><strong>0.1 Hz</strong></td><td>Krigolson/Boere Xon protocol; removes drift without distorting the low-frequency slope. A higher high-pass (1 Hz) would bite into the 1–40 Hz fit band.</td></tr><tr><td><code>filter.notch_freq_hz</code></td><td><strong>60 Hz</strong> (+ harmonics)</td><td>North-American mains. The notch and its harmonics are applied up to Nyquist. Set to <code>50</code> outside NA.</td></tr><tr><td><code>epoch.length_sec</code></td><td><strong>1.0 s</strong></td><td>Krigolson artifact-rejection routine. Also gives 1 Hz spectral resolution, matching the fit band's lower edge.</td></tr><tr><td><code>epoch.overlap_sec</code></td><td><strong>0.1 s</strong></td><td>Same protocol; mild overlap stabilises the Welch average.</td></tr><tr><td><code>artifacts.amplitude_threshold_uv</code></td><td><strong>100 µV</strong> peak-to-peak</td><td>Krigolson routine.</td></tr><tr><td><code>artifacts.gradient_threshold_uv_per_ms</code></td><td><strong>10 µV/ms</strong></td><td>Reproduces Krigolson's <em>Gradient</em> step. At 250 Hz a 40 µV sample-to-sample step == 10 µV/ms.</td></tr><tr><td><code>artifacts.flat_threshold_uv</code></td><td><strong>1 µV</strong></td><td>Dead/disconnected electrode detection.</td></tr><tr><td><code>montage.name</code></td><td><strong>standard_1020</strong></td><td>Gives the 7 Xon electrodes real scalp positions, needed for interpolation and regional grouping.</td></tr><tr><td><code>artifacts.reference</code></td><td><strong>null</strong> = device ear-clip (A2)</td><td>The Xon's native reference. Changing it changes absolute exponent values, so it is held constant across the study.</td></tr><tr><td><code>xdf.data_units</code></td><td><strong>uV</strong></td><td>Xon exports microvolts; MNE works in volts, so the loader converts.</td></tr></tbody></table>
+<h3 id="artifact-rejection-why-four-mechanisms">Artifact rejection: why four mechanisms</h3>
+<table><thead><tr><th>Mechanism</th><th>Catches</th><th>Note</th></tr></thead><tbody><tr><td>Amplitude / flat (peak-to-peak)</td><td>Movement, electrode pops, dead channels</td><td>Krigolson-matched</td></tr><tr><td><strong>Gradient</strong> (sample-to-sample slope)</td><td>Fast steps/jumps that peak-to-peak can miss</td><td>Krigolson-matched</td></tr><tr><td>Variance z-score (&gt; 3)</td><td>Epochs far noisier than that recording's norm</td><td>Adaptive, within-recording</td></tr><tr><td>Muscle z-score (&gt; 3, on &gt; 30 Hz power)</td><td>EMG/jaw/neck tension</td><td><strong>Critical</strong> — see 1.4</td></tr></tbody></table>
+<p>Each rejected epoch is <strong>attributed to the channel(s) that triggered it</strong>. That attribution is what let us diagnose participants whose recordings were being drained by a single electrode (see <code>4_OUTPUTS_AND_ANALYSIS.md</code>).</p>
+<hr>
+<h2 id="13-the-fooof-fit">1.3 The FOOOF fit</h2>
+<table><thead><tr><th>Setting</th><th>Value</th><th>Rationale</th></tr></thead><tbody><tr><td><code>fooof.freq_range</code></td><td><strong>[1, 40] Hz</strong></td><td>Lower bound = epoch length limit; <strong>upper bound 40 Hz deliberately avoids the EMG-dominated band</strong> (see 1.4).</td></tr><tr><td><code>fooof.aperiodic_mode</code></td><td><strong>fixed</strong> (no knee)</td><td>Standard for a narrow band like 1–40 Hz. A knee is mainly needed over wider ranges. A knee-mode sensitivity check is a sensible robustness analysis.</td></tr><tr><td><code>fooof.peak_width_limits</code></td><td>[1, 12] Hz</td><td>FOOOF defaults; wide enough for alpha/beta, narrow enough to not absorb the aperiodic component.</td></tr><tr><td><code>fooof.max_n_peaks</code></td><td>6</td><td>Prevents over-fitting noise as "peaks", which would bias the slope.</td></tr><tr><td>PSD method</td><td><strong>Welch</strong>, 4-s windows, 50 % overlap</td><td>Standard; averaged over clean epochs.</td></tr></tbody></table>
+<p><strong>Channel-average rule:</strong> each channel is fit separately, then averaged into the <code>AVERAGE_exponent</code>. <strong>Interpolated channels are fit and reported but excluded from the average</strong>, because a reconstructed channel is not an independent measurement.</p>
+<hr>
+<h2 id="14-the-emg-problem-the-most-important-methodological-caveat">1.4 The EMG problem (the most important methodological caveat)</h2>
+<p>Muscle activity overlaps EEG from roughly <strong>20 Hz upward</strong> and is far stronger at high frequencies — at 40 Hz there is ~5× more power in a non-paralysed than paralysed state. Because the aperiodic exponent is a <em>slope</em>, EMG contamination systematically biases it.</p>
+<p><strong>References:</strong> Whitham et al. (2007), <em>EMG contamination of EEG</em>; Muthukumaraswamy (2013), <em>High-frequency brain activity and muscle artifacts in MEG/EEG: a review and recommendations</em>.</p>
+<p><strong>What we do about it (three layers):</strong></p>
+<ol><li>Cap the FOOOF fit at <strong>40 Hz</strong>.</li><li>Notch out <strong>60 Hz</strong> mains and harmonics.</li><li>Reject epochs on <strong>&gt; 30 Hz muscle z-score</strong>.</li></ol>
+<p><strong>What we do <em>not</em> claim:</strong> that EMG is eliminated. It is <em>mitigated</em>. This is also the most plausible reason the <strong>movie</strong> condition is less reliable than rest — eyes-open viewing adds ocular and muscle activity.</p>
+<hr>
+<h2 id="15-ica-is-off-by-default">1.5 ICA is OFF by default</h2>
+<p><code>artifacts.run_ica: false</code>. ICA needs many more channels than 7 to separate sources meaningfully; at 7 channels it is underpowered and can remove real signal. We rely instead on <strong>bad-channel interpolation + epoch-level rejection</strong>. The code path exists and works if a future montage has more electrodes.</p>
+<hr>
+<h2 id="16-reliability-statistics">1.6 Reliability &amp; statistics</h2>
+<table><thead><tr><th>Analysis</th><th>Statistic</th><th>Source / rationale</th></tr></thead><tbody><tr><td>Test–retest across sessions</td><td><strong>ICC(2,1)</strong>, two-way random, absolute agreement, bootstrap 95 % CI</td><td>Conventional test–retest statistic. Thresholds: &gt; 0.75 good, &gt; 0.9 excellent. Applied to the aperiodic exponent following <strong>McKeown et al. (2024)</strong>, <em>Test–retest reliability of spectral parameterization by 1/f characterization using SpecParam</em>, <strong>Cerebral Cortex</strong> 34:bhad482.</td></tr><tr><td>Internal consistency vs duration</td><td><strong>Split-half</strong> (odd vs even epochs), <strong>Spearman-Brown</strong> corrected</td><td>Epoch-increment reliability approach used in EEG power-spectrum reliability work. Target ≥ 0.90.</td></tr><tr><td>Rest vs movie value</td><td>Paired contrast + <strong>95 % CI + Cohen's d_z</strong></td><td>Small-n pilot: estimation over p-values. A non-significant result is "inconclusive", not "no difference".</td></tr><tr><td>Scalp region</td><td><strong>Friedman</strong> omnibus + <strong>Holm</strong>-corrected pairwise Wilcoxon</td><td>Non-parametric, appropriate for small n and repeated measures across regions.</td></tr><tr><td>Agreement</td><td><strong>Bland–Altman</strong> (bias + 95 % limits)</td><td>Standard test–retest agreement plot.</td></tr></tbody></table>
+<h3 id="pseudoreplication-the-statistical-rule-of-this-codebase">Pseudoreplication — the statistical rule of this codebase</h3>
+<p>Each participant contributes multiple recordings (2 sessions × 2 conditions). Treating those as independent subjects <strong>inflates significance</strong>. Every group-level test therefore <strong>aggregates to one value per participant first</strong>. Pooled descriptive tables mix sessions/conditions and must not be read as independent samples.</p>
+<p><em>(An earlier version of the rest-vs-movie contrast was pseudoreplicated and reported −0.026, p = 0.44. The corrected participant-level result is +0.002, 95 % CI [−0.076, +0.080], p = 0.95.)</em></p>
+<hr>
+<h2 id="17-two-different-how-many-minutes-are-enough-questions">1.7 Two different "how many minutes are enough?" questions</h2><figure class="fig"><svg viewBox="0 0 900 268" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial"><text x="450.0" y="18" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f2a33">Two different &#8220;how many minutes are enough?&#8221; questions</text><line x1="70" y1="150" x2="830" y2="150" stroke="#98a2ac" stroke-width="2"/><line x1="70.0" y1="146" x2="70.0" y2="154" stroke="#98a2ac" stroke-width="1.5"/><text x="70.0" y="170" text-anchor="middle" font-size="10.5" fill="#5b6770">0</text><line x1="196.66666666666669" y1="146" x2="196.66666666666669" y2="154" stroke="#98a2ac" stroke-width="1.5"/><text x="196.66666666666669" y="170" text-anchor="middle" font-size="10.5" fill="#5b6770">5</text><line x1="323.33333333333337" y1="146" x2="323.33333333333337" y2="154" stroke="#98a2ac" stroke-width="1.5"/><text x="323.33333333333337" y="170" text-anchor="middle" font-size="10.5" fill="#5b6770">10</text><line x1="450.0" y1="146" x2="450.0" y2="154" stroke="#98a2ac" stroke-width="1.5"/><text x="450.0" y="170" text-anchor="middle" font-size="10.5" fill="#5b6770">15</text><line x1="576.6666666666667" y1="146" x2="576.6666666666667" y2="154" stroke="#98a2ac" stroke-width="1.5"/><text x="576.6666666666667" y="170" text-anchor="middle" font-size="10.5" fill="#5b6770">20</text><line x1="703.3333333333334" y1="146" x2="703.3333333333334" y2="154" stroke="#98a2ac" stroke-width="1.5"/><text x="703.3333333333334" y="170" text-anchor="middle" font-size="10.5" fill="#5b6770">25</text><line x1="830.0" y1="146" x2="830.0" y2="154" stroke="#98a2ac" stroke-width="1.5"/><text x="830.0" y="170" text-anchor="middle" font-size="10.5" fill="#5b6770">30</text><text x="450.0" y="190" text-anchor="middle" font-size="11.5" fill="#5b6770">clean minutes</text><line x1="95.33333333333333" y1="150" x2="95.33333333333333" y2="60" stroke="#1D7A74" stroke-width="2.5"/><circle cx="95.33333333333333" cy="60" r="6" fill="#1D7A74"/><text x="107.33333333333333" y="52" font-size="12" font-weight="700" fill="#1D7A74">~1 min</text><text x="107.33333333333333" y="68" font-size="11" fill="#5b6770">Reliability (rank-ordering people) is reached</text><line x1="431.0" y1="150" x2="431.0" y2="98" stroke="#D99A1C" stroke-width="2.5"/><circle cx="431.0" cy="98" r="6" fill="#D99A1C"/><text x="443.0" y="94" font-size="12" font-weight="700" fill="#D99A1C">14.25 min &#8212; median precise</text><text x="443.0" y="110" font-size="11" fill="#5b6770">odd/even halves agree (minutes_to_stabilize)</text><line x1="500.6666666666667" y1="150" x2="500.6666666666667" y2="128" stroke="#BA0C2F" stroke-width="2.5"/><circle cx="500.6666666666667" cy="128" r="6" fill="#BA0C2F"/><text x="512.6666666666667" y="132" font-size="12" font-weight="700" fill="#BA0C2F">17 min &#8212; median full value</text><text x="512.6666666666667" y="148" font-size="11" fill="#5b6770">(minutes_to_converge)</text><rect x="70" y="204" width="760" height="48" rx="8" fill="#fff8e6" stroke="#D99A1C"/><text x="450.0" y="224" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2a33">Short data ranks people reliably; the absolute value keeps drifting for 10&#8211;17 min.</text><text x="450.0" y="242" text-anchor="middle" font-size="11.5" fill="#5b6770">A short recording can be precise but biased LOW.</text></svg><figcaption>The two distinct duration questions, on one axis (cohort medians).</figcaption></figure>
+<p>This distinction was a genuine source of confusion and matters for interpretation.</p>
+<table><thead><tr><th>Question</th><th>Metric</th><th>Column</th><th>Cohort result</th></tr></thead><tbody><tr><td>Does the estimate stop <em>changing</em> (is it precise)?</td><td>Odd vs even halves agree within tolerance</td><td><code>minutes_to_stabilize</code></td><td>median <strong>14.25 min</strong> (22/39 reached it)</td></tr><tr><td>Does it reach its <em>final value</em> (unbiased)?</td><td>Running estimate within tolerance of full-length value</td><td><code>minutes_to_converge</code></td><td>median <strong>17.0 min</strong></td></tr><tr><td>Does it rank people consistently?</td><td>Split-half / adjacent-minute ICC</td><td>reliability curve</td><td>target met by <strong>~1 min</strong></td></tr></tbody></table>
+<p><strong>The key insight:</strong> reliability (rank-ordering) is achieved almost immediately, but the <strong>absolute value keeps drifting for 10–17 minutes</strong>. Short recordings can be <em>precise but biased low</em>. So: short segments are fine for <strong>comparing people</strong>; longer recordings are needed for <strong>absolute individual values</strong>.</p>
+<p><code>analysis.stabilization_tolerance</code> (<strong>0.02</strong>) sets how strict "settled" is. This was deliberately tightened from 0.1 — a loose tolerance declared "settled at 1 minute" while the curve was still visibly climbing. The report prints a <strong>sensitivity table</strong> across tolerances rather than committing to one number.</p>
+<hr>
+<h2 id="18-what-this-study-design-can-and-cannot-support">1.8 What this study design can and cannot support</h2>
+<ul><li>✅ <strong>Reliability and consistency</strong> of the Xon aperiodic exponent.</li><li>❌ <strong>Absolute accuracy</strong> — no simultaneous research-grade EEG reference was recorded, so there is no ground-truth exponent to compare against.</li><li>❌ <strong>Regional/source claims</strong> — 7 channels, no temporal or occipital coverage; regional patterns are also partly reference-dependent.</li><li>❌ <strong>Clinical inference</strong> — healthy adults only, n = 10.</li></ul>
+<hr>
+<h2 id="19-software">1.9 Software</h2>
+<p>Preprocessing with <strong>MNE-Python</strong> (Gramfort et al. 2013). Spectral parameterization with <strong>FOOOF/specparam</strong> (Donoghue et al. 2020). Statistics with <strong>SciPy</strong>; bootstrap CIs computed internally (<code>reporting/stats.py</code>).</p></main></div></body></html>

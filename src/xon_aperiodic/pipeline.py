@@ -207,13 +207,13 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
                     full_rows=f_rows, full_peaks=f_peaks, freqs=f_freqs, psd_2d=f_psd,
                     fm_by_channel=f_fm, ch_names=f_ch)
 
-    # Proactive epoch-based bad-channel screen (optional, off by default): flag a channel
-    # that would trip more than a share of epochs (same criteria that reject epochs) and add
-    # it to the bads so _process INTERPOLATES it before rejection — recovering epochs one
-    # burst-bad channel would otherwise drain (the variance detector misses those).
+    # Proactive epoch-based bad-channel screen (ON by default): flag a channel that would
+    # trip more than a share of epochs (same criteria that reject epochs) and add it to the
+    # bads so _process INTERPOLATES it before rejection — recovering epochs one burst-bad
+    # channel would otherwise drain (the variance detector misses those).
     cs = cfg.section("channel_screen")
     screened_channels: List[str] = []
-    if cs.get("enabled", False):
+    if cs.get("enabled", True):
         step("STEP 3b: Bad-channel screen (would-trip share, before rejection)")
         good = eeg_channel_names(raw_after_ica, exclude_bads=True)
         if len(good) >= 4:
@@ -298,8 +298,8 @@ def run_pipeline(input_xdf: str, cfg: Optional[Config] = None,
         excluded_channels=";".join(excluded_channels) if excluded_channels else "",
         exponent_flagged_channels=";".join(exponent_flagged) if exponent_flagged else "",
         exponent_reject_threshold=exp_threshold if detect_bad_exp else "",
-        channel_screen=bool(cs.get("enabled", False)),
-        channel_screen_share_pct=cs.get("min_epoch_share_pct") if cs.get("enabled") else "",
+        channel_screen=bool(cs.get("enabled", True)),
+        channel_screen_share_pct=cs.get("min_epoch_share_pct") if cs.get("enabled", True) else "",
         screened_channels=";".join(screened_channels) if screened_channels else "",
         n_channels_analyzed=len(analyzed_channels),
     )

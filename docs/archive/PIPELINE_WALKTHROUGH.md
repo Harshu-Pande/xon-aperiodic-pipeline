@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED / ARCHIVED (kept for history).** This file describes an earlier
+> version of the pipeline and may contain out-of-date numbers or settings.
+> **Use the current documentation in `docs/` instead.**
+
 > **Note (v1.0):** this walkthrough was written during the artifact-rejection audit and
 > describes the reasoning behind each step. Since then the pipeline adopted the
 > mentor + Boere/Krigolson decisions now shipped as defaults in `config/config.yaml`:

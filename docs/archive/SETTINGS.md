@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED / ARCHIVED (kept for history).** This file describes an earlier
+> version of the pipeline and may contain out-of-date numbers or settings.
+> **Use the current documentation in `docs/` instead.**
+
 # Settings cheat-sheet
 
 There are **three ways** to change any setting — pick whichever you like:
