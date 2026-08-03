@@ -253,7 +253,7 @@ src/xon_aperiodic/
   reporting/        cohort stats, figures, HTML report, gallery, exports
   gui.py            native desktop GUI
 tests/              synthetic test suite
-docs/               this documentation (docs/archive/ = superseded)
+docs/               documentation (start at docs/README.md; archive/ = superseded)
 scripts/            launchers (run.sh, run.bat) + the smart updater (update.py)
 archive/            superseded material, kept for history</code></pre>
 <hr>
@@ -450,6 +450,8 @@ archive/            superseded material, kept for history</code></pre>
 <hr>
 <h2 id="outputs--47-reproducing-the-poster-figures">4.7 Reproducing the poster figures</h2>
 <p><code>archive/poster-scripts/poster_figs.py</code> regenerates the six poster figures from <code>master_everything.csv</code> with poster-scale fonts and the poster palette. <code>archive/poster-scripts/build_poster.py</code> inserts them into the PowerPoint file. Neither is part of the pipeline — they read its outputs.</p></div></main></div><button class='toplink' title='Back to top'>&#8593;</button><script>
+(function(){
+'use strict';
 const pages=[...document.querySelectorAll('.page')];
 const links=[...document.querySelectorAll('.navlink')];
 function show(id,push){
@@ -457,7 +459,10 @@ function show(id,push){
   links.forEach(l=>l.classList.toggle('active',l.dataset.page===id));
   document.querySelectorAll('.subnav').forEach(s=>s.classList.toggle('show',s.dataset.for===id));
   window.scrollTo({top:0,behavior:'instant'});
-  if(push!==false) history.replaceState(null,'','#'+id);
+  // This file is meant to be opened straight off disk, and some browsers refuse
+  // history.replaceState on a file:// URL with a SecurityError. Losing the address-bar
+  // anchor is cosmetic; letting the exception escape would abort the click handler.
+  if(push!==false){try{history.replaceState(null,'','#'+id);}catch(e){}}
 }
 links.forEach(l=>l.addEventListener('click',e=>{e.preventDefault();show(l.dataset.page)}));
 document.addEventListener('click',e=>{
@@ -487,7 +492,10 @@ box.addEventListener('input',()=>{
       box.value='';res.style.display='none';});
     res.appendChild(a);});
 });
-const top=document.querySelector('.toplink');
-addEventListener('scroll',()=>top.classList.toggle('show',scrollY>500));
-top.addEventListener('click',()=>scrollTo({top:0,behavior:'smooth'}));
+const topBtn=document.querySelector('.toplink');
+if(topBtn){
+  addEventListener('scroll',()=>topBtn.classList.toggle('show',scrollY>500));
+  topBtn.addEventListener('click',()=>scrollTo({top:0,behavior:'smooth'}));
+}
+})();
 </script></body></html>

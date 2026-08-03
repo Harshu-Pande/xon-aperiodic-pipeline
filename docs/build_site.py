@@ -355,7 +355,17 @@ DIAGRAMS = {
                  "The 7 Xon electrodes on the 10-20 layout, coloured by region.")],
 }
 
+# Everything here runs inside an IIFE. That is not style: at top level, `const top`
+# collides with the built-in `window.top` and throws
+#     SyntaxError: Identifier 'top' has already been declared
+# which kills the WHOLE script before a line of it runs - so the sidebar, the search and
+# every in-page link silently stop working with no visible error. A function scope makes
+# such a name legal (it just shadows), and 'use strict' surfaces the next typo instead of
+# creating a global. The names below are also chosen to avoid the other window globals
+# that bite here: name, status, length, closed, parent, self, history, origin.
 JS = """
+(function(){
+'use strict';
 const pages=[...document.querySelectorAll('.page')];
 const links=[...document.querySelectorAll('.navlink')];
 function show(id,push){
@@ -363,7 +373,10 @@ function show(id,push){
   links.forEach(l=>l.classList.toggle('active',l.dataset.page===id));
   document.querySelectorAll('.subnav').forEach(s=>s.classList.toggle('show',s.dataset.for===id));
   window.scrollTo({top:0,behavior:'instant'});
-  if(push!==false) history.replaceState(null,'','#'+id);
+  // This file is meant to be opened straight off disk, and some browsers refuse
+  // history.replaceState on a file:// URL with a SecurityError. Losing the address-bar
+  // anchor is cosmetic; letting the exception escape would abort the click handler.
+  if(push!==false){try{history.replaceState(null,'','#'+id);}catch(e){}}
 }
 links.forEach(l=>l.addEventListener('click',e=>{e.preventDefault();show(l.dataset.page)}));
 document.addEventListener('click',e=>{
@@ -393,9 +406,12 @@ box.addEventListener('input',()=>{
       box.value='';res.style.display='none';});
     res.appendChild(a);});
 });
-const top=document.querySelector('.toplink');
-addEventListener('scroll',()=>top.classList.toggle('show',scrollY>500));
-top.addEventListener('click',()=>scrollTo({top:0,behavior:'smooth'}));
+const topBtn=document.querySelector('.toplink');
+if(topBtn){
+  addEventListener('scroll',()=>topBtn.classList.toggle('show',scrollY>500));
+  topBtn.addEventListener('click',()=>scrollTo({top:0,behavior:'smooth'}));
+}
+})();
 """
 
 
